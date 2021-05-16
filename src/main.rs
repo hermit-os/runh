@@ -4,15 +4,13 @@ extern crate colour;
 extern crate log;
 
 mod container;
+mod cri;
 mod logging;
 mod spec;
 
-use std::env;
-use std::fs::File;
-use std::io::prelude::*;
-
-use crate::spec::runtime;
+use crate::spec::create_spec;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
+use std::env;
 
 pub fn main() {
 	let matches = App::new("runh")
@@ -57,13 +55,4 @@ pub fn main() {
 			create_spec(path).expect("Unable to create new specification file");
 		}
 	}
-}
-
-fn create_spec(path: std::path::PathBuf) -> std::io::Result<()> {
-	let spec: runtime::Spec = Default::default();
-
-	let mut file = File::create(path)?;
-	write!(file, "{:?}", spec)?;
-
-	Ok(())
 }

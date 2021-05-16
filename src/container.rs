@@ -1,4 +1,4 @@
-use crate::spec::runtime::Spec;
+use crate::cri::runtime::Spec;
 use derive_builder::Builder;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
