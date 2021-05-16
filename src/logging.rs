@@ -17,6 +17,9 @@ impl log::Log for RunhLogger {
 }
 
 impl RunhLogger {
+	/// To improve the readability, every log level
+	/// get its own color. This helper function
+	/// prints the log level with its associated color.
 	fn print_level(&self, level: Level) {
 		match level {
 			Level::Info => {
