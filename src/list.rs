@@ -64,7 +64,7 @@ pub fn list_containers() {
 				};
 				let user = get_unix_username(metadata.uid()).unwrap_or("".to_string());
 				let status = if uts.exists() { "RUNNING" } else { "CREATED" };
-			 
+
 				if let Ok(container) = serde_json::from_str::<OCIContainer>(&contents) {
 					println!(
 						"{0: <12} {1: <12} {2: <12} {3: <12} {4: <12} {5: <12}",

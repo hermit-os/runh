@@ -68,7 +68,7 @@ pub fn run_container(id: Option<&str>) {
 				}
 			}
 			debug!("mount cmds {:?}", mount_cmds);
-		
+
 			let init_script = format!(
 				"mount --make-rprivate / ; mount -t tmpfs none /home ; mount -t tmpfs none /tmp mount -t tmpfs none /sys ; mount -t tmpfs none /var/log; {} ; ls -la / ; mount ; hostname {}",
 				mount_cmds.join(" ; "), host
@@ -77,20 +77,20 @@ pub fn run_container(id: Option<&str>) {
 			debug!("Container uses host name \"{}\"", host);
 			debug!("Init script: {}", init_script);
 			std::process::Command::new("unshare")
-			.arg("--map-root-user")
-			.arg("--mount-proc")
-			.arg(pid_arg)
-			.arg(ipc_arg)
-			.arg(fork_arg)
-			.arg(mount_arg)
-			.arg(uts_arg)
-			.arg("/bin/bash")
-			.arg("-c")
-			.arg(init_script)
-			.spawn()
-			.expect("Unable to spawn process")
-			.wait()
-			.expect("Unshare failed");
+				.arg("--map-root-user")
+				.arg("--mount-proc")
+				.arg(pid_arg)
+				.arg(ipc_arg)
+				.arg(fork_arg)
+				.arg(mount_arg)
+				.arg(uts_arg)
+				.arg("/bin/bash")
+				.arg("-c")
+				.arg(init_script)
+				.spawn()
+				.expect("Unable to spawn process")
+				.wait()
+				.expect("Unshare failed");
 		}
 	} else {
 		println!("Container `{}` doesn't exists", id.unwrap());
