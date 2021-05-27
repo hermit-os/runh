@@ -4,15 +4,32 @@ extern crate colour;
 extern crate log;
 
 mod container;
+mod create;
 mod cri;
+mod delete;
+//mod exec;
+mod list;
 mod logging;
 mod pull;
+mod run;
 mod spec;
 
-use crate::pull::pull_registry;
-use crate::spec::create_spec;
+use crate::create::*;
+use crate::delete::*;
+//use crate::exec::*;
+use crate::list::*;
+use crate::pull::*;
+use crate::run::*;
+use crate::spec::*;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
-use std::env;
+use std::str::FromStr;
+use std::{env, path::PathBuf};
+
+pub fn get_project_dir() -> PathBuf {
+	//let dir = directories::ProjectDirs::from("org", "hermitcore", "runh").expect("Unable to determine container directory");
+	//PathBuf::from(dir.project_path().clone())
+	PathBuf::from_str("/root/runh").unwrap().clone()
+}
 
 fn parse_matches(app: App) {
 	let matches = app.get_matches();
@@ -22,13 +39,24 @@ fn parse_matches(app: App) {
 	debug!("Welcome to runh {}", crate_version!());
 
 	if let Some(ref matches) = matches.subcommand_matches("spec") {
-		if let Some(str) = matches.value_of("BUNDLE") {
-			let path = std::path::PathBuf::from(str);
-			create_spec(std::fs::canonicalize(path).expect("Unable to determin absolte path"));
-		} else {
-			let path = env::current_dir().expect("Unable to determine current working dirctory");
-			create_spec(path);
-		}
+		create_spec(matches.value_of("BUNDLE"));
+	} else if let Some(ref matches) = matches.subcommand_matches("create") {
+		create_container(matches.value_of("CONTAINER_ID"), matches.value_of("BUNDLE"));
+	/* } else if let Some(ref matches) = matches.subcommand_matches("exec") {
+	let arguments: Vec<_> = matches
+		.values_of("COMMAND OPTIONS")
+		.map_or(Vec::new(), |arg| arg.collect());
+	exec_command(
+		matches.value_of("CONTAINER_ID"),
+		matches.value_of("COMMAND"),
+		arguments,
+	); */
+	} else if let Some(ref matches) = matches.subcommand_matches("delete") {
+		delete_container(matches.value_of("CONTAINER_ID"));
+	} else if let Some(ref matches) = matches.subcommand_matches("run") {
+		run_container(matches.value_of("CONTAINER_ID"));
+	} else if let Some(_) = matches.subcommand_matches("list") {
+		list_containers();
 	} else if let Some(ref matches) = matches.subcommand_matches("pull") {
 		if let Some(str) = matches.value_of("IMAGE") {
 			pull_registry(
@@ -68,6 +96,7 @@ pub fn main() {
 					Arg::with_name("BUNDLE")
 						.long("bundle")
 						.short("b")
+						.required(true)
 						.takes_value(true)
 						.help("path to the root of the bundle directory"),
 				),
@@ -75,12 +104,79 @@ pub fn main() {
 		.subcommand(
 			SubCommand::with_name("create")
 				.about("Create a container")
+				.version(crate_version!())
+				.arg(
+					Arg::with_name("CONTAINER_ID")
+						.takes_value(true)
+						.required(true)
+						.help("Id of the container"),
+				)
+				.arg(
+					Arg::with_name("BUNDLE")
+						.long("bundle")
+						.short("b")
+						.takes_value(true)
+						.required(true)
+						.help("Path to the root of the bundle directory"),
+				),
+		)
+		.subcommand(
+			SubCommand::with_name("exec")
+				.about("Execute new process inside the container")
+				.version(crate_version!())
+				.arg(
+					Arg::with_name("CONTAINER_ID")
+						.takes_value(true)
+						.required(true)
+						.help("Id of the container"),
+				)
+				.arg(
+					Arg::with_name("COMMAND")
+						.takes_value(true)
+						.required(true)
+						.help("Command, which will be executed in the container"),
+				)
+				.arg(
+					Arg::with_name("COMMAND OPTIONS")
+						.help("Arguments of the command")
+						.required(false)
+						.multiple(true)
+						.max_values(255),
+				),
+		)
+		.subcommand(
+			SubCommand::with_name("delete")
+				.about("Delete an existing container")
+				.version(crate_version!())
+				.arg(
+					Arg::with_name("CONTAINER_ID")
+						.takes_value(true)
+						.required(true)
+						.help("Id of the container"),
+				),
+		)
+		.subcommand(
+			SubCommand::with_name("list")
+				.about("Create and run a container")
 				.version(crate_version!()),
 		)
 		.subcommand(
 			SubCommand::with_name("run")
 				.about("Create and run a container")
-				.version(crate_version!()),
+				.version(crate_version!())
+				.arg(
+					Arg::with_name("CONTAINER_ID")
+						.takes_value(true)
+						.required(true)
+						.help("Id of the container"),
+				)
+				.arg(
+					Arg::with_name("BUNDLE")
+						.long("bundle")
+						.short("b")
+						.takes_value(true)
+						.help("Path to the root of the bundle directory"),
+				),
 		)
 		.subcommand(
 			SubCommand::with_name("pull")
