@@ -35,13 +35,13 @@ fn parse_matches(app: App) {
 	let matches = app.get_matches();
 
 	// initialize logger
-	logging::init(matches.value_of("LOG_LEVEL"));
-	debug!("Welcome to runh {}", crate_version!());
+	logging::init(matches.value_of("LOG_PATH"),matches.value_of("LOG_FORMAT"),matches.value_of("LOG_LEVEL"));
+	info!("Welcome to runh {}", crate_version!());
 
 	if let Some(ref matches) = matches.subcommand_matches("spec") {
 		create_spec(matches.value_of("BUNDLE"));
 	} else if let Some(ref matches) = matches.subcommand_matches("create") {
-		create_container(matches.value_of("CONTAINER_ID"), matches.value_of("BUNDLE"));
+		create_container(matches.value_of("CONTAINER_ID"), matches.value_of("BUNDLE"), matches.value_of("PID_FILE"));
 	/* } else if let Some(ref matches) = matches.subcommand_matches("exec") {
 	let arguments: Vec<_> = matches
 		.values_of("COMMAND OPTIONS")
@@ -75,11 +75,22 @@ fn parse_matches(app: App) {
 	}
 }
 pub fn main() {
+
+	std::panic::set_hook(Box::new(|panic_info| {
+		error!("PANIC:\n {}", panic_info); 
+	}));
+
 	let app = App::new("runh")
 		.version(crate_version!())
 		.setting(AppSettings::ColoredHelp)
 		.author(crate_authors!("\n"))
 		.about(crate_description!())
+		.arg(
+			Arg::with_name("ROOT")
+				.long("root")
+				.takes_value(true)
+				.help("root directory for storage of vm state")
+		)
 		.arg(
 			Arg::with_name("LOG_LEVEL")
 				.long("log-level")
@@ -87,6 +98,19 @@ pub fn main() {
 				.default_value("info")
 				.possible_values(&["trace", "debug", "info", "warn", "error", "off"])
 				.help("The logging level of the application."),
+		)
+		.arg(
+			Arg::with_name("LOG_PATH")
+				.long("log")
+				.takes_value(true)
+				.help("set the log file path"),
+		)
+		.arg(
+			Arg::with_name("LOG_FORMAT")
+				.long("log-format")
+				.default_value("text")
+				.possible_values(&["text", "json"])
+				.help("set the log format"),
 		)
 		.subcommand(
 			SubCommand::with_name("spec")
@@ -118,6 +142,13 @@ pub fn main() {
 						.takes_value(true)
 						.required(true)
 						.help("Path to the root of the bundle directory"),
+				)
+				.arg(
+					Arg::with_name("PID_FILE")
+						.long("pid-file")
+						.takes_value(true)
+						.required(false)
+						.help("File to write the process id to")
 				),
 		)
 		.subcommand(
