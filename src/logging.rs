@@ -1,26 +1,26 @@
+use chrono::Local;
 use log::{set_boxed_logger, set_max_level, Level, LevelFilter, Metadata, Record};
+use serde::Serialize;
+use serde_json::to_string;
 use std::fs::File;
 use std::io::Write;
 use std::sync::Mutex;
-use serde_json::to_string;
-use serde::Serialize;
-use chrono::Local;
 
 enum LogFormat {
 	TEXT,
-	JSON
+	JSON,
 }
 
 #[derive(Serialize)]
 struct LogEntry {
 	level: String,
 	msg: String,
-	time: String
+	time: String,
 }
 
 struct RunhLogger<W: Write + Send + 'static> {
 	log_file: Mutex<Option<W>>,
-	log_format: LogFormat
+	log_format: LogFormat,
 }
 
 impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
@@ -35,14 +35,13 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 				let message = match self.log_format {
 					LogFormat::TEXT => {
 						format!("[{}] {}", record.level(), record.args())
-					},
-					LogFormat::JSON => {
-						to_string(&LogEntry {
-							level: record.level().as_str().to_ascii_lowercase(),
-							msg: format!("{}", record.args()),
-							time: Local::now().to_rfc3339()
-						}).unwrap()
 					}
+					LogFormat::JSON => to_string(&LogEntry {
+						level: record.level().as_str().to_ascii_lowercase(),
+						msg: format!("{}", record.args()),
+						time: Local::now().to_rfc3339(),
+					})
+					.unwrap(),
 				};
 				writeln!(file, "{}", message).unwrap();
 			} else {
@@ -81,18 +80,16 @@ impl<W: Write + Send + 'static> RunhLogger<W> {
 }
 
 pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<&str>) {
-
-	let log_file = log_path.map(|path| std::fs::File::create(path).expect("Could not create new log file!"));
-	let log_format = log_format.map_or(LogFormat::TEXT, |fmt| {
-		match fmt {
-			"json" => LogFormat::JSON,
-			_ => LogFormat::TEXT
-		}
+	let log_file =
+		log_path.map(|path| std::fs::File::create(path).expect("Could not create new log file!"));
+	let log_format = log_format.map_or(LogFormat::TEXT, |fmt| match fmt {
+		"json" => LogFormat::JSON,
+		_ => LogFormat::TEXT,
 	});
 
 	let logger: RunhLogger<File> = RunhLogger {
 		log_file: Mutex::new(log_file),
-		log_format
+		log_format,
 	};
 
 	set_boxed_logger(Box::new(logger)).expect("Can't initialize logger");
@@ -108,5 +105,4 @@ pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<
 	set_max_level(max_level);
 
 	info!("Runh logger initialized!");
-
 }

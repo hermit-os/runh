@@ -28,20 +28,28 @@ use std::{env, path::PathBuf};
 pub fn get_project_dir() -> PathBuf {
 	//let dir = directories::ProjectDirs::from("org", "hermitcore", "runh").expect("Unable to determine container directory");
 	//PathBuf::from(dir.project_path().clone())
-	PathBuf::from_str("/root/runh").unwrap().clone()
+	PathBuf::from_str("/tmp/runh").unwrap().clone()
 }
 
 fn parse_matches(app: App) {
 	let matches = app.get_matches();
 
 	// initialize logger
-	logging::init(matches.value_of("LOG_PATH"),matches.value_of("LOG_FORMAT"),matches.value_of("LOG_LEVEL"));
+	logging::init(
+		matches.value_of("LOG_PATH"),
+		matches.value_of("LOG_FORMAT"),
+		matches.value_of("LOG_LEVEL"),
+	);
 	info!("Welcome to runh {}", crate_version!());
 
 	if let Some(ref matches) = matches.subcommand_matches("spec") {
 		create_spec(matches.value_of("BUNDLE"));
 	} else if let Some(ref matches) = matches.subcommand_matches("create") {
-		create_container(matches.value_of("CONTAINER_ID"), matches.value_of("BUNDLE"), matches.value_of("PID_FILE"));
+		create_container(
+			matches.value_of("CONTAINER_ID"),
+			matches.value_of("BUNDLE"),
+			matches.value_of("PID_FILE"),
+		);
 	/* } else if let Some(ref matches) = matches.subcommand_matches("exec") {
 	let arguments: Vec<_> = matches
 		.values_of("COMMAND OPTIONS")
@@ -75,9 +83,8 @@ fn parse_matches(app: App) {
 	}
 }
 pub fn main() {
-
 	std::panic::set_hook(Box::new(|panic_info| {
-		error!("PANIC:\n {}", panic_info); 
+		error!("PANIC:\n {}", panic_info);
 	}));
 
 	let app = App::new("runh")
@@ -89,7 +96,7 @@ pub fn main() {
 			Arg::with_name("ROOT")
 				.long("root")
 				.takes_value(true)
-				.help("root directory for storage of vm state")
+				.help("root directory for storage of vm state"),
 		)
 		.arg(
 			Arg::with_name("LOG_LEVEL")
@@ -148,7 +155,7 @@ pub fn main() {
 						.long("pid-file")
 						.takes_value(true)
 						.required(false)
-						.help("File to write the process id to")
+						.help("File to write the process id to"),
 				),
 		)
 		.subcommand(

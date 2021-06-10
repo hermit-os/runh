@@ -17,12 +17,10 @@ pub fn create_spec(bundle: Option<&str>) {
 
 		if entry_path.is_dir() {
 			let mount = runtime::MountBuilder::default()
-				.destination(path::PathBuf::from(
-					"/".to_owned() + entry_path.file_name().unwrap().to_str().unwrap(),
-				))
+				.destination(path::PathBuf::from("/mnt".to_owned()))
 				.source(entry_path.canonicalize().unwrap().to_str().unwrap())
 				.typ("none")
-				.options(vec!["rbind".to_string(), "ro".to_string()])
+				.options(vec!["rbind".to_string()])
 				.build()
 				.expect("Unable to create mount points");
 			mounts.push(mount);

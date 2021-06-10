@@ -1,4 +1,5 @@
 use crate::container::OCIContainer;
+use cgroups_rs::Cgroup;
 use std::fs;
 use std::io::Read;
 
@@ -24,42 +25,20 @@ pub fn delete_container(id: Option<&str>) {
 
 	if delete_file {
 		// try to unmount uts namespace
-		/*let mut uts = container_dir.clone();
-		uts.push("uts");
-		let mut pid = container_dir.clone();
-		pid.push("pid");
-		let mut ipc = container_dir.clone();
-		ipc.push("ipc");*/
-		// let mut mount = container_dir.clone();
-		//mount.push("mount");
+		//let mut uts = container_dir.clone();
+		//uts.push("uts");
 
 		/*std::process::Command::new("umount")
-			.arg(uts.into_os_string())
-			.spawn()
-			.expect("Unable to spawn process")
-			.wait()
-			.expect("Unmount failed");
-
-		std::process::Command::new("umount")
-			.arg(pid.into_os_string())
-			.spawn()
-			.expect("Unable to spawn process")
-			.wait()
-			.expect("Unmount failed");
-
-		std::process::Command::new("umount")
-			.arg(ipc.into_os_string())
-			.spawn()
-			.expect("Unable to spawn process")
-			.wait()
-			.expect("Unmount failed");*/
-
-		/*std::process::Command::new("umount")
-		.arg(mount.into_os_string())
+		.arg(uts.into_os_string())
 		.spawn()
 		.expect("Unable to spawn process")
 		.wait()
 		.expect("Unmount failed");*/
+
+		// load and delete cgroup
+		let h = cgroups_rs::hierarchies::auto();
+		let cgroup = Cgroup::load(h, &("hermit_".to_owned() + id.unwrap()));
+		cgroup.delete().expect("Unable to delete cgroup");
 
 		// delete all temporary files
 		fs::remove_dir_all(container_dir).expect("Unable to delete container");
