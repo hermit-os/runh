@@ -44,9 +44,10 @@ jobs:
     - name: Building release version
       run:
          cargo build --release
-    - name: Print help message (debug)
-      run:
-         cargo run -- -h
-    - name: Print help message (release)
-      run:
-         cargo run --release -- -h
+    - name:
+      run: |
+         mkdir rootfs
+         cargo run -- pull -b rootfs/ -u "$REGISTRY_USER" -p "$REGISTRY_TOKEN"  registry.git.rwth-aachen.de/acs/public/hermitcore/rusty-hermit/demo
+      env:
+         REGISTRY_USER: ${{ secrets.Registry_User }}
+         REGISTRY_TOKEN: ${{ secrets.Registry_Token }}
