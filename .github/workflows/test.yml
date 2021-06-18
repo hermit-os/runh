@@ -37,8 +37,6 @@ jobs:
          lfs: true
     - name: Check Cargo availability
       run: cargo --version
-    - name: Install sudo package
-      run: apt update && apt install sudo
     - name: Building dev version
       run:
          cargo build
