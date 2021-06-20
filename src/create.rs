@@ -6,7 +6,7 @@ use std::io::prelude::*;
 
 use crate::container::OCIContainer;
 
-pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<&str>) {
+pub fn create_container(id: Option<&str>, bundle: Option<&str>, _pidfile: Option<&str>) {
 	let container = OCIContainer::new(bundle.unwrap().to_string(), id.unwrap().to_string());
 	let mut path = crate::get_project_dir();
 

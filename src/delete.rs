@@ -24,17 +24,6 @@ pub fn delete_container(id: Option<&str>) {
 	}
 
 	if delete_file {
-		// try to unmount uts namespace
-		//let mut uts = container_dir.clone();
-		//uts.push("uts");
-
-		/*std::process::Command::new("umount")
-		.arg(uts.into_os_string())
-		.spawn()
-		.expect("Unable to spawn process")
-		.wait()
-		.expect("Unmount failed");*/
-
 		// load and delete cgroup
 		let h = cgroups_rs::hierarchies::auto();
 		let cgroup = Cgroup::load(h, &("hermit_".to_owned() + id.unwrap()));

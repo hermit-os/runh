@@ -9,28 +9,10 @@ pub fn create_spec(bundle: Option<&str>) {
 	let mut config_file = dir.clone();
 	config_file.push("config.json");
 	let cgroups_path = "/sys/fs/cgroup";
-	let mut mounts: Vec<runtime::Mount> = Vec::new();
-
-	for entry in std::fs::read_dir(dir).unwrap() {
-		let dir_entry = entry.unwrap();
-		let entry_path = dir_entry.path();
-
-		if entry_path.is_dir() {
-			let mount = runtime::MountBuilder::default()
-				.destination(path::PathBuf::from("/mnt".to_owned()))
-				.source(entry_path.canonicalize().unwrap().to_str().unwrap())
-				.typ("none")
-				.options(vec!["rbind".to_string()])
-				.build()
-				.expect("Unable to create mount points");
-			mounts.push(mount);
-		}
-	}
 
 	let spec: runtime::Spec = runtime::SpecBuilder::default()
 		.version("1.0.2")
 		.hostname("hermit")
-		.mounts(mounts)
 		.process(
 			runtime::ProcessBuilder::default()
 				.terminal(true)
