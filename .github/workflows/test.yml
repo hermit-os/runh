@@ -1,7 +1,6 @@
 name: Build and test
 
 on:
-  pull_request:
   push:
     branches:
       - main
@@ -54,5 +53,5 @@ jobs:
     - name: Create container specification
       run: |
          cd data
-         target/debug/runh --log debug spec --bundle rootfs/
+         ../target/debug/runh --log debug spec --bundle rootfs/
          sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
