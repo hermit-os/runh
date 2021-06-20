@@ -45,8 +45,14 @@ jobs:
          cargo build --release
     - name: Pull container image
       run: |
-         mkdir rootfs
-         sudo target/debug/runh pull -b rootfs/ -u "$REGISTRY_USER" -p "$REGISTRY_TOKEN"  registry.git.rwth-aachen.de/acs/public/hermitcore/rusty-hermit/demo
+         mkdir -p data
+         mkdir -p data/rootfs
+         sudo target/debug/runh pull -b data/rootfs/ -u "$REGISTRY_USER" -p "$REGISTRY_TOKEN"  registry.git.rwth-aachen.de/acs/public/hermitcore/rusty-hermit/demo
       env:
          REGISTRY_USER: ${{ secrets.Registry_User }}
          REGISTRY_TOKEN: ${{ secrets.Registry_Token }}
+    - name: Create container specification
+      run: |
+         cd data
+         target/debug/runh --log debug spec --bundle rootfs/
+         sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
