@@ -36,12 +36,9 @@ jobs:
          lfs: true
     - name: Check Cargo availability
       run: cargo --version
-    - name: Building dev version
+    - name: Building runh
       run:
          cargo build
-    - name: Building release version
-      run:
-         cargo build --release
     - name: Pull container image
       run: |
          mkdir -p data
@@ -52,9 +49,8 @@ jobs:
          REGISTRY_TOKEN: ${{ secrets.Registry_Token }}
     - name: Create container specification
       run: |
-         cd data
-         ../target/debug/runh --log debug spec --bundle rootfs/
-         sed -i 's;"sh";"/hermit/rusty_demo";' config.json
+         target/debug/runh -l debug spec --bundle data/
+         sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
     - name: Create container
       run:
          sudo target/debug/runh -l debug create -b data hello
