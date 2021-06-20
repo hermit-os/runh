@@ -104,5 +104,5 @@ pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<
 	};
 	set_max_level(max_level);
 
-	info!("Runh logger initialized!");
+	debug!("Runh logger initialized!");
 }
