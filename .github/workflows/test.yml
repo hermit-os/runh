@@ -54,7 +54,7 @@ jobs:
       run: |
          cd data
          ../target/debug/runh --log debug spec --bundle rootfs/
-         sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
+         sed -i 's;"sh";"/hermit/rusty_demo";' config.json
     - name: Create container
       run:
          sudo target/debug/runh -l debug create -b data hello
