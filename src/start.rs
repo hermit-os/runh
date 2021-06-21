@@ -99,11 +99,12 @@ pub fn start_container(id: Option<&str>) {
 					.open(container.pidfile())
 					.expect("Unable to create container");
 				let pidstr = format!("{}", child.id());
-				pidfile.write_all(pidstr.as_bytes()).expect("Unable to store pid");
+				pidfile
+					.write_all(pidstr.as_bytes())
+					.expect("Unable to store pid");
 			}
 
-			child.wait()
-				.expect("Unshare failed");
+			child.wait().expect("Unshare failed");
 		}
 	} else {
 		println!("Container `{}` doesn't exists", id.unwrap());

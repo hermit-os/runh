@@ -11,16 +11,16 @@ mod delete;
 mod list;
 mod logging;
 mod pull;
-mod start;
 mod spec;
+mod start;
 
 use crate::create::*;
 use crate::delete::*;
 //use crate::exec::*;
 use crate::list::*;
 use crate::pull::*;
-use crate::start::*;
 use crate::spec::*;
+use crate::start::*;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
 use std::str::FromStr;
 use std::{env, path::PathBuf};
@@ -207,7 +207,7 @@ pub fn main() {
 						.takes_value(true)
 						.required(true)
 						.help("Id of the container"),
-				)
+				),
 		)
 		.subcommand(
 			SubCommand::with_name("pull")
