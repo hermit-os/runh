@@ -1,0 +1,5 @@
+status = [
+  "Build and test",
+  "Format check",
+]
+delete_merged_branches = true
