@@ -1,9 +1,9 @@
-use crate::cri::runtime;
 use std::fs;
 use std::path;
 
 pub fn create_spec(bundle: Option<&str>) {
-	let dir = fs::canonicalize(path::PathBuf::from(bundle.unwrap()))
+	todo!("Convert code for spec creation to oci_spec library")
+	/*let dir = fs::canonicalize(path::PathBuf::from(bundle.unwrap()))
 		.expect("Unable to determine absolute bundle path");
 	let rootfs = path::PathBuf::from("/");
 	let mut config_file = dir.clone();
@@ -67,5 +67,5 @@ pub fn create_spec(bundle: Option<&str>) {
 		.expect("Unable to create spec");
 
 	spec.save(&config_file)
-		.expect("Unable to write new specification file");
+		.expect("Unable to write new specification file");*/
 }

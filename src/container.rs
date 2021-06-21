@@ -1,12 +1,10 @@
 use std::cmp::Ordering;
 
-use crate::cri::runtime::Spec;
-use derive_builder::Builder;
+use oci_spec::runtime::Spec;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Builder, Getters, Serialize, Deserialize)]
-#[builder(default, pattern = "owned", setter(into, strip_option))]
+#[derive(Debug, Getters, Serialize, Deserialize)]
 /// A general OCI container implementation.
 pub struct OCIContainer {
 	#[get = "pub"]
@@ -32,10 +30,10 @@ impl OCIContainer {
 			std::fs::canonicalize(bundle.clone()).expect("Unable to determine absolute path");
 
 		Self {
-			id: id,
+			id,
 			bundle: can_path.to_str().unwrap().to_string(),
-			pidfile: pidfile,
-			spec: Spec::from(&config).expect("Unable to load config file"),
+			pidfile,
+			spec: Spec::load(config.to_str().unwrap()).expect("Unable to load config file"),
 		}
 	}
 }

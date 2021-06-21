@@ -5,7 +5,6 @@ extern crate log;
 
 mod container;
 mod create;
-mod cri;
 mod delete;
 //mod exec;
 mod list;
