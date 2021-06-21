@@ -11,7 +11,7 @@ mod delete;
 mod list;
 mod logging;
 mod pull;
-mod run;
+mod start;
 mod spec;
 
 use crate::create::*;
@@ -19,7 +19,7 @@ use crate::delete::*;
 //use crate::exec::*;
 use crate::list::*;
 use crate::pull::*;
-use crate::run::*;
+use crate::start::*;
 use crate::spec::*;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
 use std::str::FromStr;
@@ -61,8 +61,8 @@ fn parse_matches(app: App) {
 	); */
 	} else if let Some(ref matches) = matches.subcommand_matches("delete") {
 		delete_container(matches.value_of("CONTAINER_ID"));
-	} else if let Some(ref matches) = matches.subcommand_matches("run") {
-		run_container(matches.value_of("CONTAINER_ID"));
+	} else if let Some(ref matches) = matches.subcommand_matches("start") {
+		start_container(matches.value_of("CONTAINER_ID"));
 	} else if let Some(_) = matches.subcommand_matches("list") {
 		list_containers();
 	} else if let Some(ref matches) = matches.subcommand_matches("pull") {
@@ -199,8 +199,8 @@ pub fn main() {
 				.version(crate_version!()),
 		)
 		.subcommand(
-			SubCommand::with_name("run")
-				.about("Create and run a container")
+			SubCommand::with_name("start")
+				.about("Executes the user defined process in a created container")
 				.version(crate_version!())
 				.arg(
 					Arg::with_name("CONTAINER_ID")
@@ -208,13 +208,6 @@ pub fn main() {
 						.required(true)
 						.help("Id of the container"),
 				)
-				.arg(
-					Arg::with_name("BUNDLE")
-						.long("bundle")
-						.short("b")
-						.takes_value(true)
-						.help("Path to the root of the bundle directory"),
-				),
 		)
 		.subcommand(
 			SubCommand::with_name("pull")

@@ -17,12 +17,15 @@ pub struct OCIContainer {
 	bundle: String,
 
 	#[get = "pub"]
+	pidfile: String,
+
+	#[get = "pub"]
 	/// OCI Runtime Specification of the container.
 	spec: Spec,
 }
 
 impl OCIContainer {
-	pub fn new(bundle: String, id: String) -> Self {
+	pub fn new(bundle: String, id: String, pidfile: String) -> Self {
 		let mut config = std::path::PathBuf::from(bundle.clone());
 		config.push("config.json");
 		let can_path =
@@ -31,6 +34,7 @@ impl OCIContainer {
 		Self {
 			id: id,
 			bundle: can_path.to_str().unwrap().to_string(),
+			pidfile: pidfile,
 			spec: Spec::from(&config).expect("Unable to load config file"),
 		}
 	}

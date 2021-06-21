@@ -6,14 +6,20 @@ use std::io::prelude::*;
 
 use crate::container::OCIContainer;
 
-pub fn create_container(id: Option<&str>, bundle: Option<&str>, _pidfile: Option<&str>) {
-	let container = OCIContainer::new(bundle.unwrap().to_string(), id.unwrap().to_string());
+pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<&str>) {
 	let mut path = crate::get_project_dir();
 
 	let _ = std::fs::create_dir(path.clone());
 
 	path.push(id.unwrap());
 	std::fs::create_dir(path.clone()).expect("Unable to create container directory");
+	let container = OCIContainer::new(
+		bundle.unwrap().to_string(),
+		id.unwrap().to_string(),
+		pidfile
+			.unwrap_or(&(path.to_str().unwrap().to_owned() + "/containerpid"))
+			.to_string(),
+	);
 
 	// write container to disk
 	path.push("container.json");

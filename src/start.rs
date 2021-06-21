@@ -2,9 +2,9 @@ use crate::container::OCIContainer;
 use goblin::elf;
 use goblin::elf64::header::EI_OSABI;
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Write};
 
-pub fn run_container(id: Option<&str>) {
+pub fn start_container(id: Option<&str>) {
 	let mut path = crate::get_project_dir();
 	path.push(id.unwrap());
 	path.push("container.json");
@@ -71,7 +71,7 @@ pub fn run_container(id: Option<&str>) {
 
 			debug!("Container uses host name \"{}\"", host);
 			debug!("Init script: {}", init_script);
-			std::process::Command::new("cgexec")
+			let mut child = std::process::Command::new("cgexec")
 				.arg("-g")
 				.arg(jail)
 				.arg("unshare")
@@ -88,8 +88,21 @@ pub fn run_container(id: Option<&str>) {
 				.arg("-c")
 				.arg(init_script)
 				.spawn()
-				.expect("Unable to spawn process")
-				.wait()
+				.expect("Unable to spawn process");
+
+			// store pid into pidfile
+			{
+				let mut pidfile = fs::OpenOptions::new()
+					.read(true)
+					.write(true)
+					.create_new(true)
+					.open(container.pidfile())
+					.expect("Unable to create container");
+				let pidstr = format!("{}", child.id());
+				pidfile.write_all(pidstr.as_bytes()).expect("Unable to store pid");
+			}
+
+			child.wait()
 				.expect("Unshare failed");
 		}
 	} else {

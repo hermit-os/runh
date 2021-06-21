@@ -56,7 +56,7 @@ jobs:
          sudo target/debug/runh -l debug create -b data hello
     - name: Run container
       run:
-         sudo target/debug/runh -l debug run hello
+         sudo target/debug/runh -l debug start hello
     - name: Delete container
       run:
          sudo target/debug/runh -l debug delete hello
