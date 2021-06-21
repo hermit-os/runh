@@ -43,46 +43,38 @@ fn parse_matches(app: App) {
 	);
 	info!("Welcome to runh {}", crate_version!());
 
-	if let Some(ref matches) = matches.subcommand_matches("spec") {
-		create_spec(matches.value_of("BUNDLE"));
-	} else if let Some(ref matches) = matches.subcommand_matches("create") {
-		create_container(
-			matches.value_of("CONTAINER_ID"),
-			matches.value_of("BUNDLE"),
-			matches.value_of("PID_FILE"),
-		);
-	/* } else if let Some(ref matches) = matches.subcommand_matches("exec") {
-	let arguments: Vec<_> = matches
-		.values_of("COMMAND OPTIONS")
-		.map_or(Vec::new(), |arg| arg.collect());
-	exec_command(
-		matches.value_of("CONTAINER_ID"),
-		matches.value_of("COMMAND"),
-		arguments,
-	); */
-	} else if let Some(ref matches) = matches.subcommand_matches("delete") {
-		delete_container(matches.value_of("CONTAINER_ID"));
-	} else if let Some(ref matches) = matches.subcommand_matches("start") {
-		start_container(matches.value_of("CONTAINER_ID"));
-	} else if let Some(_) = matches.subcommand_matches("init") {
-		init_container();
-	} else if let Some(_) = matches.subcommand_matches("list") {
-		list_containers();
-	} else if let Some(ref matches) = matches.subcommand_matches("pull") {
-		if let Some(str) = matches.value_of("IMAGE") {
-			pull_registry(
-				str,
-				matches.value_of("USERNAME"),
-				matches.value_of("PASSWORD"),
-				matches.value_of("BUNDLE"),
+	match matches.subcommand() {
+		("spec",  Some(sub_m))	=> create_spec(sub_m.value_of("BUNDLE")),
+    	("create",   Some(sub_m))	=> create_container(
+			sub_m.value_of("CONTAINER_ID"),
+			sub_m.value_of("BUNDLE"),
+			sub_m.value_of("PID_FILE"),
+		), // push was used
+    	("delete", Some(sub_m))	=>
+			delete_container(sub_m.value_of("CONTAINER_ID")),
+		("start", Some(sub_m))	=> 
+			start_container(sub_m.value_of("CONTAINER_ID")),
+		("init", Some(_))	=>
+			init_container(),
+    	("list", Some(_))	=>
+			list_containers(),
+    	("pull", Some(sub_m))	=> {
+				if let Some(str) = sub_m.value_of("IMAGE") {
+					pull_registry(
+						str,
+						matches.value_of("USERNAME"),
+						matches.value_of("PASSWORD"),
+						matches.value_of("BUNDLE"),
+					);
+				} else {
+					error!("Image name is missing");
+				}
+			},
+		_ => {
+			error!(
+				"Subcommand is missing or currently not supported! Run `runh -h` for more information!"
 			);
-		} else {
-			error!("Image name is missing");
-		}
-	} else {
-		error!(
-			"Subcommand is missing or currently not supported! Run `runh -h` for more information!"
-		);
+		},
 	}
 }
 pub fn main() {
