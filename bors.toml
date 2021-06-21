@@ -1,5 +1,5 @@
 status = [
-  "Build and test",
-  "Format check",
+  "Build and test / Test (ubuntu-latest)",
+  "Format check / Format check (ubuntu-latest)",
 ]
 delete_merged_branches = true
