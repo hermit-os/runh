@@ -1,8 +1,10 @@
 use cgroups_rs::cgroup_builder::CgroupBuilder;
 use cgroups_rs::devices::*;
 use cgroups_rs::Cgroup;
+use cgroups_rs::CgroupPid;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use fork::{daemon, Fork};
 
 use crate::container::OCIContainer;
 
@@ -33,7 +35,7 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.unwrap();
 
 	let h = cgroups_rs::hierarchies::auto();
-	let _cgroup: Cgroup = CgroupBuilder::new(&("hermit_".to_owned() + id.unwrap()))
+	let cgroup: Cgroup = CgroupBuilder::new(&("hermit_".to_owned() + id.unwrap()))
 		.memory()
 		.done()
 		.cpu()
@@ -92,4 +94,28 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.blkio()
 		.done()
 		.build(h);
+
+	debug!(
+		"Create container with uid {}, gid {}",
+		container.spec().process.as_ref().unwrap().user.uid,
+		container.spec().process.as_ref().unwrap().user.gid
+	);
+
+	if let Ok(Fork::Child) = daemon(false, false) {
+		let init_process = std::process::Command::new(std::env::current_exe().unwrap())
+			.arg("init")
+			.spawn()
+			.expect("Unable to spawn runh init process");
+
+		cgroup.add_task(CgroupPid::from(&init_process)).expect("Could not add init task to cGroup!");
+
+		if let Some(pid_file_path) = pidfile {
+			let mut file = std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
+			write!(file, "{}", init_process.id()).expect("Could not write to pid-file!");
+		}
+	} else {
+		error!("Could not spawn init process!")
+	}
+
+	// This point is unreachable as daemon exits the parent 
 }

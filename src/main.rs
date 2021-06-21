@@ -12,6 +12,7 @@ mod logging;
 mod pull;
 mod spec;
 mod start;
+mod init;
 
 use crate::create::*;
 use crate::delete::*;
@@ -20,6 +21,7 @@ use crate::list::*;
 use crate::pull::*;
 use crate::spec::*;
 use crate::start::*;
+use crate::init::*;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
 use std::str::FromStr;
 use std::{env, path::PathBuf};
@@ -62,6 +64,8 @@ fn parse_matches(app: App) {
 		delete_container(matches.value_of("CONTAINER_ID"));
 	} else if let Some(ref matches) = matches.subcommand_matches("start") {
 		start_container(matches.value_of("CONTAINER_ID"));
+	} else if let Some(_) = matches.subcommand_matches("init") {
+		init_container();
 	} else if let Some(_) = matches.subcommand_matches("list") {
 		list_containers();
 	} else if let Some(ref matches) = matches.subcommand_matches("pull") {
@@ -207,6 +211,11 @@ pub fn main() {
 						.required(true)
 						.help("Id of the container"),
 				),
+		)
+		.subcommand(
+			SubCommand::with_name("init")
+				.about("Init process running inside a newly created container. Do not use outside of runh!")
+				.version(crate_version!())
 		)
 		.subcommand(
 			SubCommand::with_name("pull")
