@@ -16,28 +16,22 @@ async fn async_pull(
 		"Try to pull image with username: {:?} and password: {:?}",
 		username, password
 	);
-	let auth = username.is_some() && password.is_some();
 	let dkref = Reference::from_str(registry).expect("Invalid registry string");
 	debug!("Select {}", dkref);
 
 	let image = &dkref.repository().clone();
+	let login_scope = format!("repository:{}:pull", image);
 	let version = &dkref.version().clone();
-	let client = Client::configure()
+	let dclient = Client::configure()
 		.registry(&dkref.registry().clone())
-		.insecure_registry(!auth)
+		.insecure_registry(false)
 		.username(username)
 		.password(password)
 		.build()
-		.expect("Unable to create registry client");
-	let dclient = if auth {
-		let login_scope = format!("repository:{}:pull", image);
-		client
-			.authenticate(&[&login_scope])
-			.await
-			.expect("Athentication failed!")
-	} else {
-		client
-	};
+		.expect("Unable to create registry client")
+		.authenticate(&[&login_scope])
+		.await
+		.expect("Athentication failed!");
 
 	let manifest = dclient
 		.get_manifest(image, version)
