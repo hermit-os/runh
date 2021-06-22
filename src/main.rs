@@ -7,21 +7,21 @@ mod container;
 mod create;
 mod delete;
 //mod exec;
+mod init;
 mod list;
 mod logging;
 mod pull;
 mod spec;
 mod start;
-mod init;
 
 use crate::create::*;
 use crate::delete::*;
 //use crate::exec::*;
+use crate::init::*;
 use crate::list::*;
 use crate::pull::*;
 use crate::spec::*;
 use crate::start::*;
-use crate::init::*;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
 use std::str::FromStr;
 use std::{env, path::PathBuf};
@@ -44,37 +44,33 @@ fn parse_matches(app: App) {
 	info!("Welcome to runh {}", crate_version!());
 
 	match matches.subcommand() {
-		("spec",  Some(sub_m))	=> create_spec(sub_m.value_of("BUNDLE")),
-    	("create",   Some(sub_m))	=> create_container(
+		("spec", Some(sub_m)) => create_spec(sub_m.value_of("BUNDLE")),
+		("create", Some(sub_m)) => create_container(
 			sub_m.value_of("CONTAINER_ID"),
 			sub_m.value_of("BUNDLE"),
 			sub_m.value_of("PID_FILE"),
 		), // push was used
-    	("delete", Some(sub_m))	=>
-			delete_container(sub_m.value_of("CONTAINER_ID")),
-		("start", Some(sub_m))	=> 
-			start_container(sub_m.value_of("CONTAINER_ID")),
-		("init", Some(_))	=>
-			init_container(),
-    	("list", Some(_))	=>
-			list_containers(),
-    	("pull", Some(sub_m))	=> {
-				if let Some(str) = sub_m.value_of("IMAGE") {
-					pull_registry(
-						str,
-						matches.value_of("USERNAME"),
-						matches.value_of("PASSWORD"),
-						matches.value_of("BUNDLE"),
-					);
-				} else {
-					error!("Image name is missing");
-				}
-			},
+		("delete", Some(sub_m)) => delete_container(sub_m.value_of("CONTAINER_ID")),
+		("start", Some(sub_m)) => start_container(sub_m.value_of("CONTAINER_ID")),
+		("init", Some(_)) => init_container(),
+		("list", Some(_)) => list_containers(),
+		("pull", Some(sub_m)) => {
+			if let Some(str) = sub_m.value_of("IMAGE") {
+				pull_registry(
+					str,
+					matches.value_of("USERNAME"),
+					matches.value_of("PASSWORD"),
+					matches.value_of("BUNDLE"),
+				);
+			} else {
+				error!("Image name is missing");
+			}
+		}
 		_ => {
 			error!(
 				"Subcommand is missing or currently not supported! Run `runh -h` for more information!"
 			);
-		},
+		}
 	}
 }
 pub fn main() {

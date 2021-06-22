@@ -1,7 +1,6 @@
+use oci_spec::runtime;
 use std::fs;
 use std::path;
-use oci_spec::runtime;
-
 
 pub fn create_spec(bundle: Option<&str>) {
 	let dir = fs::canonicalize(path::PathBuf::from(bundle.unwrap()))
@@ -16,12 +15,15 @@ pub fn create_spec(bundle: Option<&str>) {
 		hostname: Some("hermit".to_string()),
 		process: Some(runtime::Process {
 			terminal: Some(true),
-			console_size: Some(runtime::Box {width: 0, height: 0}),
+			console_size: Some(runtime::Box {
+				width: 0,
+				height: 0,
+			}),
 			user: runtime::User {
 				uid: 0,
 				gid: 0,
 				username: Some("root".to_string()),
-				additional_gids: Some(Vec::new())
+				additional_gids: Some(Vec::new()),
 			},
 			args: Some(vec!["sh".to_string()]),
 			env: Some(vec![
@@ -60,7 +62,7 @@ pub fn create_spec(bundle: Option<&str>) {
 			rootfs_propagation: None,
 			masked_paths: None,
 			readonly_paths: None,
-			mount_label:None,
+			mount_label: None,
 			intel_rdt: None,
 		}),
 		solaris: None,

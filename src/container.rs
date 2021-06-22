@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
-use oci_spec::runtime::Spec;
 use getset::Getters;
+use oci_spec::runtime::Spec;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Getters, Serialize, Deserialize)]

@@ -2,9 +2,9 @@ use cgroups_rs::cgroup_builder::CgroupBuilder;
 use cgroups_rs::devices::*;
 use cgroups_rs::Cgroup;
 use cgroups_rs::CgroupPid;
+use fork::{daemon, Fork};
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use fork::{daemon, Fork};
 
 use crate::container::OCIContainer;
 
@@ -107,15 +107,18 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 			.spawn()
 			.expect("Unable to spawn runh init process");
 
-		cgroup.add_task(CgroupPid::from(&init_process)).expect("Could not add init task to cGroup!");
+		cgroup
+			.add_task(CgroupPid::from(&init_process))
+			.expect("Could not add init task to cGroup!");
 
 		if let Some(pid_file_path) = pidfile {
-			let mut file = std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
+			let mut file =
+				std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
 			write!(file, "{}", init_process.id()).expect("Could not write to pid-file!");
 		}
 	} else {
 		error!("Could not spawn init process!")
 	}
 
-	// This point is unreachable as daemon exits the parent 
+	// This point is unreachable as daemon exits the parent
 }
