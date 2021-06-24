@@ -18,7 +18,7 @@ pub fn start_container(id: Option<&str>) {
 		if let Ok(container) = serde_json::from_str::<OCIContainer>(&contents) {
 			let host = container
 				.spec()
-				.hostname()
+				.hostname
 				.as_ref()
 				.unwrap_or(&"hermit".to_string())
 				.clone();
@@ -27,8 +27,8 @@ pub fn start_container(id: Option<&str>) {
 			debug!("Bundle at {}", container.bundle());
 			debug!(
 				"Run container with uid {}, gid {}",
-				container.spec().process().as_ref().unwrap().user().uid(),
-				container.spec().process().as_ref().unwrap().user().gid()
+				container.spec().process.as_ref().unwrap().user.uid,
+				container.spec().process.as_ref().unwrap().user.gid
 			);
 
 			/*let mut mount_cmds = Vec::new();
@@ -47,10 +47,10 @@ pub fn start_container(id: Option<&str>) {
 
 			let command = container
 				.spec()
-				.process()
+				.process
 				.as_ref()
 				.unwrap()
-				.args()
+				.args
 				.as_ref()
 				.unwrap()
 				.get(0)

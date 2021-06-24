@@ -368,6 +368,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
+name = "fork"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4c5b9b0bce249a456f83ac4404e8baad0d2ba81cf651949719a4f74eb7323bb"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "form_urlencoded"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -846,6 +855,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "oci-spec"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eb445556ec119b785f90e1705c6b6aa684ccc2afee6c43d4a9fa4148d420e37"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1152,11 +1172,13 @@ dependencies = [
  "colour",
  "derive_builder",
  "dkregistry",
+ "fork",
  "futures",
  "getset",
  "goblin",
  "libc",
  "log",
+ "oci-spec",
  "serde",
  "serde_json",
  "tokio",

@@ -92,4 +92,10 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.blkio()
 		.done()
 		.build(h);
+
+	debug!(
+		"Create container with uid {}, gid {}",
+		container.spec().process.as_ref().unwrap().user.uid,
+		container.spec().process.as_ref().unwrap().user.gid
+	);
 }
