@@ -1,8 +1,6 @@
 use cgroups_rs::cgroup_builder::CgroupBuilder;
 use cgroups_rs::devices::*;
 use cgroups_rs::Cgroup;
-use cgroups_rs::CgroupPid;
-use fork::{daemon, Fork};
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 
