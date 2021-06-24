@@ -55,9 +55,9 @@ fn parse_matches(app: App) {
 			if let Some(str) = sub_m.value_of("IMAGE") {
 				pull_registry(
 					str,
-					matches.value_of("USERNAME"),
-					matches.value_of("PASSWORD"),
-					matches.value_of("BUNDLE"),
+					sub_m.value_of("USERNAME"),
+					sub_m.value_of("PASSWORD"),
+					sub_m.value_of("BUNDLE"),
 				);
 			} else {
 				error!("Image name is missing");
