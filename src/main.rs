@@ -7,6 +7,7 @@ mod container;
 mod create;
 mod delete;
 //mod exec;
+mod init;
 mod list;
 mod logging;
 mod pull;
@@ -16,6 +17,7 @@ mod start;
 use crate::create::*;
 use crate::delete::*;
 //use crate::exec::*;
+use crate::init::*;
 use crate::list::*;
 use crate::pull::*;
 use crate::spec::*;
@@ -50,6 +52,7 @@ fn parse_matches(app: App) {
 		),
 		("delete", Some(sub_m)) => delete_container(sub_m.value_of("CONTAINER_ID")),
 		("start", Some(sub_m)) => start_container(sub_m.value_of("CONTAINER_ID")),
+		("init", Some(_)) => init_container(),
 		("list", Some(_)) => list_containers(),
 		("pull", Some(sub_m)) => {
 			if let Some(str) = sub_m.value_of("IMAGE") {
@@ -196,6 +199,11 @@ pub fn main() {
 						.required(true)
 						.help("Id of the container"),
 				),
+		)
+		.subcommand(
+			SubCommand::with_name("init")
+				.about("Init process running inside a newly created container. Do not use outside of runh!")
+				.version(crate_version!())
 		)
 		.subcommand(
 			SubCommand::with_name("pull")
