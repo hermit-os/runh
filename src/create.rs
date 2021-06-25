@@ -30,12 +30,12 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	);
 
 	// write container to disk
-	path.push("container.json");
+	let spec_path = path.join("container.json");
 	let mut file = OpenOptions::new()
 		.read(true)
 		.write(true)
 		.create_new(true)
-		.open(&path)
+		.open(&spec_path)
 		.expect("Unable to create container");
 	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 		.unwrap();
@@ -123,6 +123,8 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 
 	let fifo = OpenOptions::new()
 		.custom_flags(libc::O_PATH | libc::O_CLOEXEC)
+		.read(true)
+		.write(false)
 		.mode(0)
 		.open(&fifo_location)
 		.expect("Could not open fifo!");
