@@ -1,16 +1,15 @@
-use cgroups_rs::cgroup_builder::CgroupBuilder;
-use cgroups_rs::devices::*;
-use cgroups_rs::Cgroup;
-use cgroups_rs::CgroupPid;
 use command_fds::{CommandFdExt, FdMapping};
-use fork::{daemon, Fork};
+use nix::sys::socket;
+use nix::sys::socket::SockFlag;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
+use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
+use std::os::unix::prelude::FromRawFd;
 
 use crate::container::OCIContainer;
 
@@ -40,66 +39,66 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 		.unwrap();
 
-	let h = cgroups_rs::hierarchies::auto();
-	let cgroup: Cgroup = CgroupBuilder::new(&("hermit_".to_owned() + id.unwrap()))
-		.memory()
-		.done()
-		.cpu()
-		.shares(100)
-		.done()
-		.devices()
-		.device(
-			-1,
-			-1,
-			DeviceType::All,
-			false,
-			vec![
-				DevicePermissions::Read,
-				DevicePermissions::Write,
-				DevicePermissions::MkNod,
-			],
-		)
-		.device(
-			5,
-			1,
-			DeviceType::Char,
-			true,
-			vec![DevicePermissions::Read, DevicePermissions::Write],
-		)
-		.device(
-			1,
-			5,
-			DeviceType::Char,
-			true,
-			vec![DevicePermissions::Read, DevicePermissions::Write],
-		)
-		.device(
-			1,
-			3,
-			DeviceType::Char,
-			true,
-			vec![DevicePermissions::Read, DevicePermissions::Write],
-		)
-		.device(
-			1,
-			8,
-			DeviceType::Char,
-			true,
-			vec![DevicePermissions::Read, DevicePermissions::Write],
-		)
-		.device(
-			1,
-			9,
-			DeviceType::Char,
-			true,
-			vec![DevicePermissions::Read, DevicePermissions::Write],
-		)
-		.done()
-		.network()
-		.done()
-		.blkio()
-		.done()
-		.build(h);
+	// let h = cgroups_rs::hierarchies::auto();
+	// let cgroup: Cgroup = CgroupBuilder::new(&("hermit_".to_owned() + id.unwrap()))
+	// 	.memory()
+	// 	.done()
+	// 	.cpu()
+	// 	.shares(100)
+	// 	.done()
+	// 	.devices()
+	// 	.device(
+	// 		-1,
+	// 		-1,
+	// 		DeviceType::All,
+	// 		false,
+	// 		vec![
+	// 			DevicePermissions::Read,
+	// 			DevicePermissions::Write,
+	// 			DevicePermissions::MkNod,
+	// 		],
+	// 	)
+	// 	.device(
+	// 		5,
+	// 		1,
+	// 		DeviceType::Char,
+	// 		true,
+	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
+	// 	)
+	// 	.device(
+	// 		1,
+	// 		5,
+	// 		DeviceType::Char,
+	// 		true,
+	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
+	// 	)
+	// 	.device(
+	// 		1,
+	// 		3,
+	// 		DeviceType::Char,
+	// 		true,
+	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
+	// 	)
+	// 	.device(
+	// 		1,
+	// 		8,
+	// 		DeviceType::Char,
+	// 		true,
+	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
+	// 	)
+	// 	.device(
+	// 		1,
+	// 		9,
+	// 		DeviceType::Char,
+	// 		true,
+	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
+	// 	)
+	// 	.done()
+	// 	.network()
+	// 	.done()
+	// 	.blkio()
+	// 	.done()
+	// 	.build(h);
 
 	debug!(
 		"Create container with uid {}, gid {}",
@@ -107,7 +106,7 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		container.spec().process.as_ref().unwrap().user.gid
 	);
 
-	//Setup fifo
+	//Setup exec fifo
 	let fifo_location = path.join("exec.fifo");
 	let old_mask = Mode::from_bits_truncate(0o000);
 	nix::unistd::mkfifo(&fifo_location, Mode::from_bits_truncate(0o644))
@@ -129,30 +128,38 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.open(&fifo_location)
 		.expect("Could not open fifo!");
 
-	if let Ok(Fork::Child) = daemon(false, false) {
-		let init_process = std::process::Command::new(std::env::current_exe().unwrap())
-			.arg("init")
-			.fd_mappings(vec![FdMapping {
+	//Setup init pipe
+	let (parent_socket_fd, child_socket_fd) = socket::socketpair(
+		socket::AddressFamily::Unix,
+		socket::SockType::Stream,
+		None,
+		SockFlag::SOCK_CLOEXEC,
+	)
+	.expect("Could not create socket pair for init pipe!");
+
+	let _ = std::process::Command::new("/proc/self/exe")
+		.arg("init")
+		.fd_mappings(vec![
+			FdMapping {
 				parent_fd: fifo.as_raw_fd(),
 				child_fd: 3,
-			}])
-			.expect("Unable to pass fifo fd to child!")
-			.env("RUNH_FIFOFD", "3")
-			.spawn()
-			.expect("Unable to spawn runh init process");
+			},
+			FdMapping {
+				parent_fd: child_socket_fd,
+				child_fd: 4,
+			},
+		])
+		.expect("Unable to pass fifo fd to child!")
+		.env("RUNH_FIFOFD", "3")
+		.env("RUNH_INITPIPE", "4")
+		.spawn()
+		.expect("Unable to spawn runh init process");
 
-		cgroup
-			.add_task(CgroupPid::from(&init_process))
-			.expect("Could not add init task to cGroup!");
-
-		if let Some(pid_file_path) = pidfile {
-			let mut file =
-				std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
-			write!(file, "{}", init_process.id()).expect("Could not write to pid-file!");
-		}
-	} else {
-		error!("Could not spawn init process!")
-	}
-
-	// This point is unreachable as daemon exits the parent
+	debug!("Started init process. Waiting for first message...");
+	let mut init_pipe = unsafe { File::from_raw_fd(parent_socket_fd) };
+	let mut buffer: [u8; 1] = [1];
+	init_pipe
+		.read_exact(&mut buffer)
+		.expect("Could not read from init pipe!");
+	info!("Read from init pipe: {}", buffer[0]);
 }
