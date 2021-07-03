@@ -161,5 +161,5 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	init_pipe
 		.read_exact(&mut buffer)
 		.expect("Could not read from init pipe!");
-	info!("Read from init pipe: {}", buffer[0]);
+	debug!("Read from init pipe: {}", buffer[0]);
 }
