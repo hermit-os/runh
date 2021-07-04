@@ -39,67 +39,6 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 		.unwrap();
 
-	// let h = cgroups_rs::hierarchies::auto();
-	// let cgroup: Cgroup = CgroupBuilder::new(&("hermit_".to_owned() + id.unwrap()))
-	// 	.memory()
-	// 	.done()
-	// 	.cpu()
-	// 	.shares(100)
-	// 	.done()
-	// 	.devices()
-	// 	.device(
-	// 		-1,
-	// 		-1,
-	// 		DeviceType::All,
-	// 		false,
-	// 		vec![
-	// 			DevicePermissions::Read,
-	// 			DevicePermissions::Write,
-	// 			DevicePermissions::MkNod,
-	// 		],
-	// 	)
-	// 	.device(
-	// 		5,
-	// 		1,
-	// 		DeviceType::Char,
-	// 		true,
-	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
-	// 	)
-	// 	.device(
-	// 		1,
-	// 		5,
-	// 		DeviceType::Char,
-	// 		true,
-	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
-	// 	)
-	// 	.device(
-	// 		1,
-	// 		3,
-	// 		DeviceType::Char,
-	// 		true,
-	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
-	// 	)
-	// 	.device(
-	// 		1,
-	// 		8,
-	// 		DeviceType::Char,
-	// 		true,
-	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
-	// 	)
-	// 	.device(
-	// 		1,
-	// 		9,
-	// 		DeviceType::Char,
-	// 		true,
-	// 		vec![DevicePermissions::Read, DevicePermissions::Write],
-	// 	)
-	// 	.done()
-	// 	.network()
-	// 	.done()
-	// 	.blkio()
-	// 	.done()
-	// 	.build(h);
-
 	debug!(
 		"Create container with uid {}, gid {}",
 		container.spec().process.as_ref().unwrap().user.uid,
@@ -138,6 +77,8 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	.expect("Could not create socket pair for init pipe!");
 
 	let _ = std::process::Command::new("/proc/self/exe")
+		.arg("-l")
+		.arg("debug")
 		.arg("init")
 		.fd_mappings(vec![
 			FdMapping {
@@ -162,4 +103,6 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.read_exact(&mut buffer)
 		.expect("Could not read from init pipe!");
 	debug!("Read from init pipe: {}", buffer[0]);
+
+	loop {}
 }
