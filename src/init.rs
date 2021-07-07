@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::os::unix::prelude::AsRawFd;
+use std::os::unix::prelude::{AsRawFd, IntoRawFd};
 use std::{
 	env,
 	fs::File,
@@ -9,9 +9,8 @@ use std::{
 use capctl::prctl;
 use nix::sched::{self, CloneFlags};
 use nix::sys::socket;
-use oci_spec::runtime;
-use serde::Deserialize;
-use serde::Serialize;
+use nix::unistd::{Pid, Uid};
+use oci_spec::runtime::{self, Spec};
 
 #[derive(Clone, Copy, Debug, Default)]
 struct SocketPair {
@@ -33,9 +32,11 @@ enum InitStage {
 	CHILD,
 	GRANDCHILD,
 }
-#[derive(Serialize, Deserialize, Debug)]
+
+#[derive(Debug)]
 struct InitConfig {
-	namespaces: Option<Vec<runtime::LinuxNamespace>>,
+	spec: Spec,
+	cloneflags: CloneFlags,
 }
 
 #[derive(Debug)]
@@ -72,10 +73,20 @@ pub fn init_container() {
 	let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(pipe_fd)) };
 	write!(init_pipe, "\0").expect("Unable to write to init-pipe!");
 
-	debug!("read config from init_pipe");
-	//FIXME: Actually read the config from the pipe
+	debug!("read config from spec file");
+	let spec_fd: i32 = env::var("RUNH_SPEC_FILE")
+		.expect("No spec file given!")
+		.parse()
+		.expect("RUNH_SPEC_FILE was not an integer!");
+	let spec_file = unsafe { File::from_raw_fd(RawFd::from(spec_fd)) };
+	let config: Spec = serde_json::from_reader(&spec_file).expect("Unable to read spec file!");
 
-	let config = InitConfig { namespaces: None };
+	debug!("generate clone-flags");
+	let cloneflags = if let Some(namespaces) = &config.linux.as_ref().unwrap().namespaces {
+		generate_cloneflags(namespaces)
+	} else {
+		CloneFlags::empty()
+	};
 
 	debug!("set process as non-dumpable");
 	prctl::set_dumpable(false).expect("Could not set process as non-dumpable!");
@@ -105,10 +116,13 @@ pub fn init_container() {
 	debug!("jump into init_stage");
 	init_stage(&SetupArgs {
 		stage: InitStage::PARENT,
-		init_pipe: pipe_fd,
+		init_pipe: init_pipe.into_raw_fd(),
 		parent_child_sync,
 		parent_grandchild_sync,
-		config: &config,
+		config: &InitConfig {
+			spec: config,
+			cloneflags,
+		},
 	});
 }
 
@@ -154,18 +168,78 @@ fn init_stage(args: &SetupArgs) -> isize {
 			});
 			debug!("Created child with pid {}", child_pid);
 			debug!("Wait for synchronization with children!");
-			loop {}
+
+			let mut pid_buffer = [0; 4];
+			let mut child_sync_pipe = unsafe { File::from_raw_fd(args.parent_child_sync.parent) };
+			debug!(
+				"Listening on fd {} for grandchild pid",
+				args.parent_child_sync.parent
+			);
+			child_sync_pipe
+				.read_exact(&mut pid_buffer)
+				.expect("could not synchronize with first child!");
+
+			let received_pid = i32::from_le_bytes(pid_buffer);
+			debug!("Received child PID: {}", received_pid);
+
+			debug!("send child PID to runh create");
+			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
+			init_pipe
+				.write(&pid_buffer)
+				.expect("Unable to write to init-pipe!");
+			return 0; // Exit parent
 		}
 		InitStage::CHILD => {
 			debug!("enter init_stage child");
 			let _ = prctl::set_name("runh:CHILD");
-			if let Some(namespaces) = &args.config.namespaces {
+			if let Some(namespaces) = &args.config.spec.linux.as_ref().unwrap().namespaces {
 				join_namespaces(namespaces)
 			}
+
+			//TODO: Unshare user namespace if requested
+
+			nix::unistd::setresuid(Uid::from_raw(0), Uid::from_raw(0), Uid::from_raw(0))
+				.expect("could not become root in user namespace!");
+
+			// Unshare all other namespaces (except cgroup)
+			debug!(
+				"unshare namespaces with cloneflags {:?}",
+				args.config.cloneflags
+			);
+			let mut flags = args.config.cloneflags.clone();
+			flags.remove(CloneFlags::CLONE_NEWCGROUP);
+			nix::sched::unshare(flags).expect("could not unshare non-user namespaces!");
+
+			// Fork again into new PID-Namespace and send PID to parent
+			let grandchild_pid: i32 = clone_process(CloneArgs {
+				stack: [0; 4096],
+				args: &SetupArgs {
+					stage: InitStage::GRANDCHILD,
+					init_pipe: args.init_pipe,
+					parent_child_sync: args.parent_child_sync,
+					parent_grandchild_sync: args.parent_grandchild_sync,
+					config: args.config,
+				},
+				child_func: Box::new(init_stage),
+			})
+			.into();
+
+			// Send grandchild-PID to parent process
+			debug!("writing PID to fd {}", args.parent_child_sync.child);
+
+			let mut child_sync_pipe = unsafe { File::from_raw_fd(args.parent_child_sync.child) };
+			let written_bytes = child_sync_pipe
+				.write(&grandchild_pid.to_le_bytes())
+				.expect("Could not write grandchild-PID to pipe!");
+			debug!("Wrote {} bytes for grandchild-PID", written_bytes);
+			return 0; // Exit child process
 		}
-		InitStage::GRANDCHILD => {}
-	};
-	return 0;
+		InitStage::GRANDCHILD => {
+			debug!("enter init_stage grandchild");
+			debug!("Welcome to the container! This is PID {}", Pid::this());
+			loop {}
+		}
+	}
 }
 
 struct ConfiguredNamespace<'a>(File, &'a runtime::LinuxNamespace);
@@ -173,22 +247,24 @@ struct ConfiguredNamespace<'a>(File, &'a runtime::LinuxNamespace);
 fn join_namespaces(namespaces: &Vec<runtime::LinuxNamespace>) {
 	let mut configured_ns: Vec<ConfiguredNamespace> = Vec::new();
 	for ns in namespaces {
-		configured_ns.push(ConfiguredNamespace(
-			File::open(
-				ns.path
-					.as_ref()
-					.expect(format!("namespace {} has no path!", ns.typ).as_str()),
-			)
-			.expect(
-				format!(
-					"failed to open {} for NS {}",
-					ns.path.as_ref().unwrap(),
-					ns.typ
-				)
-				.as_str(),
-			),
-			ns,
-		));
+		if let Some(path) = ns.path.as_ref() {
+			configured_ns.push(ConfiguredNamespace(
+				File::open(path).expect(
+					format!(
+						"failed to open {} for NS {}",
+						ns.path.as_ref().unwrap(),
+						ns.typ
+					)
+					.as_str(),
+				),
+				ns,
+			));
+		} else {
+			debug!(
+				"Namespace {} has no path, skipping in join_namespaces",
+				ns.typ
+			);
+		}
 	}
 
 	for ns_config in &configured_ns {
@@ -205,4 +281,21 @@ fn join_namespaces(namespaces: &Vec<runtime::LinuxNamespace>) {
 		nix::sched::setns(ns_config.0.as_raw_fd(), flags)
 			.expect(format!("Failed to join NS {:?}", ns_config.1).as_str());
 	}
+}
+
+fn generate_cloneflags(namespaces: &Vec<runtime::LinuxNamespace>) -> CloneFlags {
+	let mut result = CloneFlags::empty();
+	for ns in namespaces {
+		let flag = match ns.typ {
+			runtime::LinuxNamespaceType::cgroup => CloneFlags::CLONE_NEWCGROUP,
+			runtime::LinuxNamespaceType::ipc => CloneFlags::CLONE_NEWIPC,
+			runtime::LinuxNamespaceType::mount => CloneFlags::CLONE_NEWNS,
+			runtime::LinuxNamespaceType::network => CloneFlags::CLONE_NEWNET,
+			runtime::LinuxNamespaceType::pid => CloneFlags::CLONE_NEWPID,
+			runtime::LinuxNamespaceType::user => CloneFlags::CLONE_NEWUSER,
+			runtime::LinuxNamespaceType::uts => CloneFlags::CLONE_NEWUTS,
+		};
+		result.insert(flag);
+	}
+	return result;
 }

@@ -76,6 +76,11 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	)
 	.expect("Could not create socket pair for init pipe!");
 
+	//Pass spec file
+	let mut config = std::path::PathBuf::from(bundle.unwrap().to_string());
+	config.push("config.json");
+	let spec_file = File::open(config).expect("Could not open spec file!");
+
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
 		.arg("debug")
@@ -89,10 +94,15 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 				parent_fd: child_socket_fd,
 				child_fd: 4,
 			},
+			FdMapping {
+				parent_fd: spec_file.as_raw_fd(),
+				child_fd: 5,
+			},
 		])
 		.expect("Unable to pass fifo fd to child!")
 		.env("RUNH_FIFOFD", "3")
 		.env("RUNH_INITPIPE", "4")
+		.env("RUNH_SPEC_FILE", "5")
 		.spawn()
 		.expect("Unable to spawn runh init process");
 
@@ -104,5 +114,19 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.expect("Could not read from init pipe!");
 	debug!("Read from init pipe: {}", buffer[0]);
 
-	loop {}
+	debug!("Waiting for runh init to send grandchild PID");
+	let mut pid_buffer = [0; 4];
+	init_pipe
+		.read_exact(&mut pid_buffer)
+		.expect("Could not read from init pipe!");
+
+	let pid = i32::from_le_bytes(pid_buffer);
+	if let Some(pid_file_path) = pidfile {
+		let mut file = std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
+		write!(file, "{}", pid).expect("Could not write to pid-file!");
+	}
+	debug!(
+		"Wrote grandchild PID {} to file. Now exiting runh create...",
+		pid
+	);
 }
