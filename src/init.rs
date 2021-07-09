@@ -1,5 +1,6 @@
+use std::fs::OpenOptions;
 use std::io::{Read, Write};
-use std::os::unix::prelude::{AsRawFd, IntoRawFd};
+use std::os::unix::prelude::{AsRawFd, IntoRawFd, OpenOptionsExt};
 use std::{
 	env,
 	fs::File,
@@ -119,10 +120,7 @@ pub fn init_container() {
 		init_pipe: init_pipe.into_raw_fd(),
 		parent_child_sync,
 		parent_grandchild_sync,
-		config: InitConfig {
-			spec,
-			cloneflags,
-		},
+		config: InitConfig { spec, cloneflags },
 	});
 }
 
@@ -252,7 +250,73 @@ fn init_stage(args: SetupArgs) -> isize {
 				nix::sched::unshare(CloneFlags::CLONE_NEWCGROUP)
 					.expect("could not unshare cgroups namespace!");
 			}
-			loop {}
+
+			// In runc's case, this is the point where control is transferred back to the go runtime
+			debug!("read config from spec file");
+			let fifo_fd: i32 = env::var("RUNH_FIFOFD")
+				.expect("No fifo fd given!")
+				.parse()
+				.expect("RUNH_FIFOFD was not an integer!");
+
+			unsafe {
+				libc::clearenv();
+			}
+
+			// Set environment variables found in the config
+			if let Some(process) = &args.config.spec.process {
+				if let Some(env) = &process.env {
+					debug!("load environment variables from config");
+					for var in env {
+						let (name, value) = var.split_once("=").expect(
+							format!("Could not parse environment variable: {}", var).as_str(),
+						);
+						std::env::set_var(name, value);
+					}
+				}
+			}
+
+			//TODO: Create new session keyring if requested
+			//TODO: Setup network and routing
+			//TODO: Setup devices, mountpoints and file system
+			//TODO: Setup console
+
+			if let Some(hostname) = args.config.spec.hostname {
+				debug!("set hostname to {}", &hostname);
+				nix::unistd::sethostname(hostname).expect("Could not set hostname!");
+			}
+
+			//TODO: Apply apparmor profile
+			//TODO: Write sysctl keys
+			//TODO: Manage readonly and mask paths
+
+			// Set no_new_privileges
+			if let Some(process) = &args.config.spec.process {
+				if process.no_new_privileges.unwrap_or(false) {
+					debug!("set no_new_privileges");
+					prctl::set_no_new_privs().expect("Could not set no_new_privs flag!");
+				}
+			}
+
+			//Tell runh create we are ready to execv
+			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
+			init_pipe
+				.write(&[crate::consts::INIT_READY_TO_EXECV])
+				.expect("Unable to write to init-pipe!");
+
+			info!("Runh init setup complete. Now waiting for signal to execv!");
+
+			let mut exec_fifo = OpenOptions::new()
+				.custom_flags(libc::O_CLOEXEC)
+				.read(false)
+				.write(true)
+				.open(format!("/proc/self/fd/{}", fifo_fd))
+				.expect("Could not open exec fifo!");
+
+			write!(exec_fifo, "\0").expect("Could not write to exec fifo!");
+
+			debug!("Fifo was opened! Starting container process...");
+			std::thread::sleep(std::time::Duration::from_secs(10));
+			return 0;
 		}
 	}
 }

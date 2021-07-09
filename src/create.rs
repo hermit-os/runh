@@ -125,8 +125,16 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		let mut file = std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
 		write!(file, "{}", pid).expect("Could not write to pid-file!");
 	}
-	debug!(
-		"Wrote grandchild PID {} to file. Now exiting runh create...",
-		pid
-	);
+	debug!("Waiting for runh init to get ready to execv!");
+	let mut sig_buffer = [0u8];
+	init_pipe
+		.read_exact(&mut sig_buffer)
+		.expect("Could not read from init-pipe!");
+
+	if sig_buffer[0] == crate::consts::INIT_READY_TO_EXECV {
+		info!("Runh init ran successfully and is now ready to execv. Now closing runh create...");
+		return;
+	} else {
+		panic!("Received invalid signal from runh init!");
+	}
 }
