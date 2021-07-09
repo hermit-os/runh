@@ -1,5 +1,4 @@
 use crate::container::OCIContainer;
-use cgroups_rs::Cgroup;
 use std::fs;
 use std::io::Read;
 
@@ -24,11 +23,6 @@ pub fn delete_container(id: Option<&str>) {
 	}
 
 	if delete_file {
-		// load and delete cgroup
-		let h = cgroups_rs::hierarchies::auto();
-		let cgroup = Cgroup::load(h, &("hermit_".to_owned() + id.unwrap()));
-		cgroup.delete().expect("Unable to delete cgroup");
-
 		// delete all temporary files
 		fs::remove_dir_all(container_dir).expect("Unable to delete container");
 	}
