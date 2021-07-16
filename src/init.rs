@@ -1,6 +1,7 @@
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::os::unix::prelude::{AsRawFd, IntoRawFd, OpenOptionsExt};
+use std::path::PathBuf;
 use std::{
 	env,
 	fs::File,
@@ -8,6 +9,7 @@ use std::{
 };
 
 use capctl::prctl;
+use nix::mount::{self, MsFlags};
 use nix::sched::{self, CloneFlags};
 use nix::sys::socket;
 use nix::unistd::{Gid, Pid, Uid};
@@ -38,6 +40,7 @@ enum InitStage {
 struct InitConfig {
 	spec: Spec,
 	cloneflags: CloneFlags,
+	rootfs: String,
 }
 
 #[derive(Debug)]
@@ -51,7 +54,7 @@ struct SetupArgs {
 
 #[repr(align(16))]
 struct CloneArgs {
-	stack: [u8; 4096],
+	stack: [u8; 8192],
 	args: SetupArgs,
 	child_func: Box<dyn Fn(SetupArgs) -> isize>,
 }
@@ -73,6 +76,21 @@ pub fn init_container() {
 		.expect("RUNH_INITPIPE was not an integer!");
 	let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(pipe_fd)) };
 	write!(init_pipe, "\0").expect("Unable to write to init-pipe!");
+
+	let mut size_buffer = [0u8; std::mem::size_of::<usize>()];
+	init_pipe
+		.read_exact(&mut size_buffer)
+		.expect("Could not read message size from init-pipe!");
+	let message_size = usize::from_le_bytes(size_buffer);
+	debug!("Rootfs-path lenght: {}", message_size);
+
+	let mut rootfs_path_buffer = vec![0; message_size as usize];
+	init_pipe
+		.read_exact(&mut rootfs_path_buffer)
+		.expect("Could not read rootfs-path from init pipe!");
+	let rootfs_path =
+		String::from_utf8(rootfs_path_buffer).expect("Could not parse rootfs-path as string!");
+	debug!("read rootfs from init_pipe: {}", rootfs_path);
 
 	debug!("read config from spec file");
 	let spec_fd: i32 = env::var("RUNH_SPEC_FILE")
@@ -120,7 +138,11 @@ pub fn init_container() {
 		init_pipe: init_pipe.into_raw_fd(),
 		parent_child_sync,
 		parent_grandchild_sync,
-		config: InitConfig { spec, cloneflags },
+		config: InitConfig {
+			spec,
+			cloneflags,
+			rootfs: rootfs_path,
+		},
 	});
 }
 
@@ -154,7 +176,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
 			let _ = prctl::set_name("runh:PARENT");
 			let child_pid = clone_process(Box::new(CloneArgs {
-				stack: [0; 4096],
+				stack: [0; 8192],
 				args: SetupArgs {
 					stage: InitStage::CHILD,
 					init_pipe: args.init_pipe,
@@ -211,7 +233,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			// Fork again into new PID-Namespace and send PID to parent
 			let grandchild_pid: i32 = clone_process(Box::new(CloneArgs {
-				stack: [0; 4096],
+				stack: [0; 8192],
 				args: SetupArgs {
 					stage: InitStage::GRANDCHILD,
 					init_pipe: args.init_pipe,
@@ -278,6 +300,56 @@ fn init_stage(args: SetupArgs) -> isize {
 			//TODO: Create new session keyring if requested
 			//TODO: Setup network and routing
 			//TODO: Setup devices, mountpoints and file system
+			let mut mount_flags = MsFlags::empty();
+			mount_flags.insert(MsFlags::MS_REC);
+			mount_flags.insert(match args.config.spec.linux.as_ref().unwrap().rootfs_propagation.as_ref().and_then(|x| Some(x.as_str())) {
+				Some("shared") => MsFlags::MS_SHARED,
+				Some("slave") => MsFlags::MS_SLAVE,
+				Some("private") => MsFlags::MS_PRIVATE,
+				Some("unbindable") => MsFlags::MS_UNBINDABLE,
+				Some(_) => panic!("Value of rootfsPropagation did not match any known option! Given value: {}", &args.config.spec.linux.as_ref().unwrap().rootfs_propagation.as_ref().unwrap()),
+				None => MsFlags::MS_SLAVE
+			});
+
+			mount::mount::<Option<&str>, str, Option<&str>, Option<&str>>(
+				None,
+				"/",
+				None,
+				mount_flags,
+				None,
+			)
+			.expect(
+				format!(
+					"Could not mount rootfs with given MsFlags {:?}",
+					mount_flags
+				)
+				.as_str(),
+			);
+
+			//TODO: Make parent mount private (?)
+			let mut bind_mount_flags = MsFlags::empty();
+			bind_mount_flags.insert(MsFlags::MS_BIND);
+			bind_mount_flags.insert(MsFlags::MS_REC);
+
+			let rootfs_path = PathBuf::from(args.config.rootfs);
+
+			mount::mount::<PathBuf, PathBuf, str, Option<&str>>(
+				Some(&rootfs_path),
+				&rootfs_path,
+				Some("bind"),
+				bind_mount_flags,
+				None,
+			)
+			.expect(format!("Could not bind-mount rootfs at {:?}", rootfs_path).as_str());
+
+			if let Some(mounts) = args.config.spec.mounts {
+				configure_mounts(
+					&mounts,
+					rootfs_path,
+					args.config.spec.linux.unwrap().mount_label,
+				);
+			}
+
 			//TODO: Setup console
 
 			if let Some(hostname) = args.config.spec.hostname {
@@ -317,6 +389,41 @@ fn init_stage(args: SetupArgs) -> isize {
 			debug!("Fifo was opened! Starting container process...");
 			std::thread::sleep(std::time::Duration::from_secs(10));
 			return 0;
+		}
+	}
+}
+
+fn configure_mounts(mounts: &Vec<runtime::Mount>, rootfs: PathBuf, mount_label: Option<String>) {
+	for mount in mounts {
+		let mount_destination = mount.destination.trim_start_matches("/");
+		let destination = &rootfs.join(mount_destination.to_owned());
+
+		let mut destination_resolved = PathBuf::new();
+
+		// Verfify destination path lies within rootfs folder (no symlinks out of it)
+		for subpath in destination.iter() {
+			destination_resolved.push(subpath);
+			if destination_resolved.exists() {
+				destination_resolved = destination_resolved.canonicalize().expect(
+					format!("Could not resolve mount path at {:?}", destination_resolved).as_str(),
+				);
+			}
+		}
+		if destination_resolved.starts_with(&rootfs) {
+			debug!("Mounting {:?}", destination_resolved);
+			match mount.typ.as_ref().and_then(|x| Some(x.as_str())) {
+				Some("sysfs") | Some("proc") => todo!("Mount sysfs|proc"),
+				Some("mqueue") => todo!("Mount mqueue"),
+				Some("tmpfs") => todo!("Mount tmpfs"),
+				Some("bind") => todo!("Mount bind"),
+				Some("cgroup") => todo!("Mount cgroup"),
+				_ => todo!("Mount default"),
+			}
+		} else {
+			panic!(
+				"Mount at {} cannot be mounted into rootfs!",
+				mount.destination
+			);
 		}
 	}
 }
