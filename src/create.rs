@@ -10,6 +10,7 @@ use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::prelude::FromRawFd;
+use std::path::PathBuf;
 
 use crate::container::OCIContainer;
 
@@ -113,6 +114,26 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.read_exact(&mut buffer)
 		.expect("Could not read from init pipe!");
 	debug!("Read from init pipe: {}", buffer[0]);
+
+	let rootfs_path = PathBuf::from(bundle.unwrap().to_string() + "/rootfs");
+	let rootfs_path_str = std::fs::canonicalize(rootfs_path)
+		.expect("Could not parse path to rootfs!")
+		.as_os_str()
+		.to_str()
+		.expect("Could not convert rootfs-path to string!")
+		.to_string();
+	debug!(
+		"Write rootfs-path {} (lenght {}) to init-pipe!",
+		rootfs_path_str,
+		rootfs_path_str.len()
+	);
+	init_pipe
+		.write(&(rootfs_path_str.len() as usize).to_le_bytes())
+		.expect("Could not write rootfs-path size to init pipe!");
+
+	init_pipe
+		.write_all(rootfs_path_str.as_bytes())
+		.expect("Could not write rootfs-path to init pipe!");
 
 	debug!("Waiting for runh init to send grandchild PID");
 	let mut pid_buffer = [0; 4];
