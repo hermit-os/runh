@@ -8,6 +8,9 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
+use crate::flags;
+use crate::mounts;
+use crate::namespaces;
 use capctl::prctl;
 use nix::mount::{self, MsFlags};
 use nix::sched::{self, CloneFlags};
@@ -102,7 +105,7 @@ pub fn init_container() {
 
 	debug!("generate clone-flags");
 	let cloneflags = if let Some(namespaces) = &spec.linux.as_ref().unwrap().namespaces {
-		generate_cloneflags(namespaces)
+		flags::generate_cloneflags(namespaces)
 	} else {
 		CloneFlags::empty()
 	};
@@ -213,7 +216,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			debug!("enter init_stage child");
 			let _ = prctl::set_name("runh:CHILD");
 			if let Some(namespaces) = &args.config.spec.linux.as_ref().unwrap().namespaces {
-				join_namespaces(namespaces)
+				namespaces::join_namespaces(namespaces)
 			}
 
 			//TODO: Unshare user namespace if requested
@@ -343,7 +346,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			.expect(format!("Could not bind-mount rootfs at {:?}", rootfs_path).as_str());
 
 			if let Some(mounts) = args.config.spec.mounts {
-				configure_mounts(
+				mounts::configure_mounts(
 					&mounts,
 					rootfs_path,
 					args.config.spec.linux.unwrap().mount_label,
@@ -390,93 +393,5 @@ fn init_stage(args: SetupArgs) -> isize {
 			std::thread::sleep(std::time::Duration::from_secs(10));
 			return 0;
 		}
-	}
-}
-
-fn configure_mounts(mounts: &Vec<runtime::Mount>, rootfs: PathBuf, mount_label: Option<String>) {
-	for mount in mounts {
-		let mount_destination = mount.destination.trim_start_matches("/");
-		let destination = &rootfs.join(mount_destination.to_owned());
-
-		let mut destination_resolved = PathBuf::new();
-
-		// Verfify destination path lies within rootfs folder (no symlinks out of it)
-		for subpath in destination.iter() {
-			destination_resolved.push(subpath);
-			if destination_resolved.exists() {
-				destination_resolved = destination_resolved.canonicalize().expect(
-					format!("Could not resolve mount path at {:?}", destination_resolved).as_str(),
-				);
-			}
-		}
-		if destination_resolved.starts_with(&rootfs) {
-			debug!("Mounting {:?}", destination_resolved);
-			match mount.typ.as_ref().and_then(|x| Some(x.as_str())) {
-				Some("sysfs") | Some("proc") => todo!("Mount sysfs|proc"),
-				Some("mqueue") => todo!("Mount mqueue"),
-				Some("tmpfs") => todo!("Mount tmpfs"),
-				Some("bind") => todo!("Mount bind"),
-				Some("cgroup") => todo!("Mount cgroup"),
-				_ => todo!("Mount default"),
-			}
-		} else {
-			panic!(
-				"Mount at {} cannot be mounted into rootfs!",
-				mount.destination
-			);
-		}
-	}
-}
-
-struct ConfiguredNamespace<'a>(File, &'a runtime::LinuxNamespace);
-
-fn join_namespaces(namespaces: &Vec<runtime::LinuxNamespace>) {
-	let mut configured_ns: Vec<ConfiguredNamespace> = Vec::new();
-	for ns in namespaces {
-		if let Some(path) = ns.path.as_ref() {
-			configured_ns.push(ConfiguredNamespace(
-				File::open(path).expect(
-					format!(
-						"failed to open {} for NS {}",
-						ns.path.as_ref().unwrap(),
-						ns.typ
-					)
-					.as_str(),
-				),
-				ns,
-			));
-		} else {
-			debug!(
-				"Namespace {} has no path, skipping in join_namespaces",
-				ns.typ
-			);
-		}
-	}
-
-	for ns_config in &configured_ns {
-		debug!("joining namespace {:?}", ns_config.1);
-		let flags = get_cloneflag(ns_config.1.typ);
-		nix::sched::setns(ns_config.0.as_raw_fd(), flags)
-			.expect(format!("Failed to join NS {:?}", ns_config.1).as_str());
-	}
-}
-
-fn generate_cloneflags(namespaces: &Vec<runtime::LinuxNamespace>) -> CloneFlags {
-	let mut result = CloneFlags::empty();
-	for ns in namespaces {
-		result.insert(get_cloneflag(ns.typ));
-	}
-	return result;
-}
-
-fn get_cloneflag(typ: runtime::LinuxNamespaceType) -> CloneFlags {
-	match typ {
-		runtime::LinuxNamespaceType::cgroup => CloneFlags::CLONE_NEWCGROUP,
-		runtime::LinuxNamespaceType::ipc => CloneFlags::CLONE_NEWIPC,
-		runtime::LinuxNamespaceType::mount => CloneFlags::CLONE_NEWNS,
-		runtime::LinuxNamespaceType::network => CloneFlags::CLONE_NEWNET,
-		runtime::LinuxNamespaceType::pid => CloneFlags::CLONE_NEWPID,
-		runtime::LinuxNamespaceType::user => CloneFlags::CLONE_NEWUSER,
-		runtime::LinuxNamespaceType::uts => CloneFlags::CLONE_NEWUTS,
 	}
 }
