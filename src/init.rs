@@ -1,6 +1,7 @@
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::os::unix::prelude::{AsRawFd, IntoRawFd, OpenOptionsExt};
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::{
 	env,
@@ -372,6 +373,19 @@ fn init_stage(args: SetupArgs) -> isize {
 				}
 			}
 
+			let exec_args = args.config.spec.process.unwrap().args.unwrap();
+
+			//Verify the args[0] executable exists
+			let exec_path_rel = PathBuf::from(
+				exec_args
+					.get(0)
+					.expect("Container spec does not contain any args!"),
+			);
+			let exec_path_abs = paths::find_in_path(exec_path_rel)
+				.expect("Could not determine location of args-executable!");
+
+			info!("Found args-executable: {:?}", exec_path_abs);
+
 			//Tell runh create we are ready to execv
 			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
 			init_pipe
@@ -390,8 +404,14 @@ fn init_stage(args: SetupArgs) -> isize {
 			write!(exec_fifo, "\0").expect("Could not write to exec fifo!");
 
 			debug!("Fifo was opened! Starting container process...");
-			std::thread::sleep(std::time::Duration::from_secs(10));
-			return 0;
+
+			let error = std::process::Command::new(exec_path_abs)
+				.arg0(exec_args.get(0).unwrap())
+				.args(exec_args.get(1..).unwrap())
+				.envs(std::env::vars())
+				.exec();
+
+			panic!("exec failed with error {}", error);
 		}
 	}
 }
