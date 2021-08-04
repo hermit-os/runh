@@ -8,12 +8,12 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
-use crate::flags;
 use crate::mounts;
 use crate::namespaces;
+use crate::{flags, paths};
 use capctl::prctl;
-use nix::mount::{self, MsFlags};
-use nix::sched::{self, CloneFlags};
+use nix::mount::MsFlags;
+use nix::sched::CloneFlags;
 use nix::sys::socket;
 use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime::{self, Spec};
@@ -57,7 +57,7 @@ struct SetupArgs {
 
 #[repr(align(16))]
 struct CloneArgs {
-	stack: [u8; 8192],
+	stack: [u8; 16384],
 	args: SetupArgs,
 	child_func: Box<dyn Fn(SetupArgs) -> isize>,
 }
@@ -156,7 +156,7 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 	}
 
 	let res = unsafe {
-		let combined = sched::CloneFlags::CLONE_PARENT.bits() | libc::SIGCHLD;
+		let combined = nix::sched::CloneFlags::CLONE_PARENT.bits() | libc::SIGCHLD;
 		let ptr = args.stack.as_mut_ptr().offset(args.stack.len() as isize);
 		let ptr_aligned = ptr.offset((ptr as usize % 16) as isize * -1);
 		libc::clone(
@@ -179,7 +179,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
 			let _ = prctl::set_name("runh:PARENT");
 			let child_pid = clone_process(Box::new(CloneArgs {
-				stack: [0; 8192],
+				stack: [0; 16384],
 				args: SetupArgs {
 					stage: InitStage::CHILD,
 					init_pipe: args.init_pipe,
@@ -236,7 +236,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			// Fork again into new PID-Namespace and send PID to parent
 			let grandchild_pid: i32 = clone_process(Box::new(CloneArgs {
-				stack: [0; 8192],
+				stack: [0; 16384],
 				args: SetupArgs {
 					stage: InitStage::GRANDCHILD,
 					init_pipe: args.init_pipe,
@@ -314,7 +314,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				None => MsFlags::MS_SLAVE
 			});
 
-			mount::mount::<Option<&str>, str, Option<&str>, Option<&str>>(
+			nix::mount::mount::<Option<&str>, str, Option<&str>, Option<&str>>(
 				None,
 				"/",
 				None,
@@ -336,7 +336,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			let rootfs_path = PathBuf::from(args.config.rootfs);
 
-			mount::mount::<PathBuf, PathBuf, str, Option<&str>>(
+			nix::mount::mount::<PathBuf, PathBuf, str, Option<&str>>(
 				Some(&rootfs_path),
 				&rootfs_path,
 				Some("bind"),
