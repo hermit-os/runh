@@ -14,6 +14,7 @@ mod list;
 mod logging;
 mod mounts;
 mod namespaces;
+mod paths;
 mod pull;
 mod spec;
 mod start;
