@@ -16,6 +16,7 @@ mod mounts;
 mod namespaces;
 mod paths;
 mod pull;
+mod rootfs;
 mod spec;
 mod start;
 

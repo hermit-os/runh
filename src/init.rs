@@ -11,7 +11,7 @@ use std::{
 
 use crate::mounts;
 use crate::namespaces;
-use crate::{flags, paths};
+use crate::{flags, paths, rootfs};
 use capctl::prctl;
 use nix::mount::MsFlags;
 use nix::sched::CloneFlags;
@@ -303,7 +303,8 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//TODO: Create new session keyring if requested
 			//TODO: Setup network and routing
-			//TODO: Setup devices, mountpoints and file system
+
+			//Setup devices, mountpoints and file system
 			let mut mount_flags = MsFlags::empty();
 			mount_flags.insert(MsFlags::MS_REC);
 			mount_flags.insert(match args.config.spec.linux.as_ref().unwrap().rootfs_propagation.as_ref().and_then(|x| Some(x.as_str())) {
@@ -349,12 +350,48 @@ fn init_stage(args: SetupArgs) -> isize {
 			if let Some(mounts) = args.config.spec.mounts {
 				mounts::configure_mounts(
 					&mounts,
-					rootfs_path,
+					&rootfs_path,
 					args.config.spec.linux.unwrap().mount_label,
 				);
 			}
 
+			nix::unistd::chdir(&rootfs_path).expect(
+				format!(
+					"Could not change directory to rootfs path {:?}",
+					rootfs_path
+				)
+				.as_str(),
+			);
+
+			//TODO: Run create hooks
+
+			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNS) {
+				rootfs::pivot_root(&rootfs_path);
+			} else {
+				nix::unistd::chroot(".").expect("Could not chroot into current directory!");
+				nix::unistd::chdir("/").expect("Could not chdir to / after chroot!");
+			}
+
+			//TODO: setup /dev/null
+
+			let cwd = &args.config.spec.process.as_ref().unwrap().cwd;
+			if !cwd.is_empty() {
+				mounts::create_all_dirs(&PathBuf::from(cwd));
+			}
+
 			//TODO: Setup console
+
+			//Finalize rootfs
+			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNS) {
+				//TODO: Remount /dev as ro if requested
+
+				if let Some(root) = args.config.spec.root {
+					if root.readonly.unwrap_or(false) {
+						rootfs::set_rootfs_read_only();
+					}
+				}
+				let _ = nix::sys::stat::umask(nix::sys::stat::Mode::from_bits(0o022).unwrap());
+			}
 
 			if let Some(hostname) = args.config.spec.hostname {
 				debug!("set hostname to {}", &hostname);

@@ -1,5 +1,5 @@
 use crate::flags;
-use oci_spec::runtime;
+use oci_spec::runtime::{self, LinuxNamespaceType};
 use std::{fs::File, os::unix::prelude::AsRawFd};
 
 struct ConfiguredNamespace<'a>(File, &'a runtime::LinuxNamespace);

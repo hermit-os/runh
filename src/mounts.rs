@@ -28,7 +28,7 @@ impl Default for MountOptions {
 
 pub fn configure_mounts(
 	mounts: &Vec<runtime::Mount>,
-	rootfs: PathBuf,
+	rootfs: &PathBuf,
 	mount_label: Option<String>,
 ) {
 	//TODO: Set mount type to "bind" if the bind or rbind option is set
@@ -45,8 +45,6 @@ pub fn configure_mounts(
 
 		let mount_dest = PathBuf::from(&mount.destination);
 		let mount_device = mount.typ.as_ref().unwrap().as_str();
-
-		debug!("Mount options: {:?}", mount.options);
 
 		let mount_options = mount
 			.options
@@ -134,7 +132,7 @@ pub fn configure_mounts(
 					);
 				}
 				_ => {
-					if destination_resolved.starts_with(rootfs.join("proc")) {
+					if destination_resolved.starts_with(&rootfs.join("proc")) {
 						panic!(
 							"Tried to mount source {:?} at destination {:?} which is in /proc",
 							mount_src, mount_dest
@@ -159,6 +157,8 @@ pub fn configure_mounts(
 			);
 		}
 	}
+
+	//TODO: Setup device mounts
 }
 
 fn remount(
@@ -275,12 +275,12 @@ fn open_trough_procfd(
 	dest_file
 }
 
-fn create_all_dirs(dest: &PathBuf) {
+pub fn create_all_dirs(dest: &PathBuf) {
 	DirBuilder::new()
 		.recursive(true)
 		.mode(0o755)
 		.create(dest)
-		.expect(format!("Could not create mount directories for {:?}", dest).as_str());
+		.expect(format!("Could not create directories for {:?}", dest).as_str());
 }
 
 fn parse_mount_options(options: &Vec<String>) -> MountOptions {
