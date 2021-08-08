@@ -1,4 +1,5 @@
 use command_fds::{CommandFdExt, FdMapping};
+use nix::fcntl::OFlag;
 use nix::sys::socket;
 use nix::sys::socket::SockFlag;
 use nix::sys::stat::Mode;
@@ -11,6 +12,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::prelude::FromRawFd;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use crate::container::OCIContainer;
 
@@ -77,6 +79,32 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	)
 	.expect("Could not create socket pair for init pipe!");
 
+	//Setup log pipe
+	let (parent_log_fd, child_log_fd) =
+		nix::unistd::pipe2(OFlag::O_CLOEXEC).expect("Could not create socket pair for log pipe!");
+	let log_forwarder = std::thread::spawn(move || {
+		let log_pipe = unsafe { std::fs::File::from_raw_fd(parent_log_fd) };
+		let mut reader = std::io::BufReader::new(log_pipe);
+		let mut buffer: Vec<u8> = vec![];
+		while let Ok(bytes_read) = reader.read_until(b"}"[0], &mut buffer) {
+			if bytes_read > 0 {
+				if let Ok(log_entry) =
+					serde_json::from_slice::<crate::logging::LogEntry>(buffer.as_slice())
+				{
+					match log::Level::from_str(log_entry.level.as_str()) {
+						Ok(level) => log!(level, "[INIT] {}", log_entry.msg),
+						Err(_) => info!("[INIT] {}", log_entry.msg),
+					}
+					buffer.clear();
+				}
+			} else {
+				debug!("Read zero bytes from log pipe, closing forwarder...");
+				break;
+			}
+		}
+		debug!("Encountered error while reading from log pipe, closing forwarder...");
+	});
+
 	//Pass spec file
 	let mut config = std::path::PathBuf::from(bundle.unwrap().to_string());
 	config.push("config.json");
@@ -85,6 +113,8 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
 		.arg("debug")
+		.arg("--log-format")
+		.arg("json")
 		.arg("init")
 		.fd_mappings(vec![
 			FdMapping {
@@ -99,11 +129,16 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 				parent_fd: spec_file.as_raw_fd(),
 				child_fd: 5,
 			},
+			FdMapping {
+				parent_fd: child_log_fd,
+				child_fd: 6,
+			},
 		])
 		.expect("Unable to pass fifo fd to child!")
 		.env("RUNH_FIFOFD", "3")
 		.env("RUNH_INITPIPE", "4")
 		.env("RUNH_SPEC_FILE", "5")
+		.env("RUNH_LOG_PIPE", "6")
 		.spawn()
 		.expect("Unable to spawn runh init process");
 
@@ -153,7 +188,8 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.expect("Could not read from init-pipe!");
 
 	if sig_buffer[0] == crate::consts::INIT_READY_TO_EXECV {
-		info!("Runh init ran successfully and is now ready to execv. Now closing runh create...");
+		info!("Runh init ran successfully and is now ready to execv. Waiting for log pipe to close...");
+		log_forwarder.join().expect("Log forwarder did panic!");
 		return;
 	} else {
 		panic!("Received invalid signal from runh init!");

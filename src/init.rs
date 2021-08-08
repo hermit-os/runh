@@ -56,9 +56,11 @@ struct SetupArgs {
 	config: InitConfig,
 }
 
+const STACK_SIZE: usize = 16384 * 2;
+
 #[repr(align(16))]
 struct CloneArgs {
-	stack: [u8; 16384],
+	stack: [u8; STACK_SIZE],
 	args: SetupArgs,
 	child_func: Box<dyn Fn(SetupArgs) -> isize>,
 }
@@ -180,7 +182,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
 			let _ = prctl::set_name("runh:PARENT");
 			let child_pid = clone_process(Box::new(CloneArgs {
-				stack: [0; 16384],
+				stack: [0; STACK_SIZE],
 				args: SetupArgs {
 					stage: InitStage::CHILD,
 					init_pipe: args.init_pipe,
@@ -237,7 +239,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			// Fork again into new PID-Namespace and send PID to parent
 			let grandchild_pid: i32 = clone_process(Box::new(CloneArgs {
-				stack: [0; 16384],
+				stack: [0; STACK_SIZE],
 				args: SetupArgs {
 					stage: InitStage::GRANDCHILD,
 					init_pipe: args.init_pipe,
@@ -430,6 +432,8 @@ fn init_stage(args: SetupArgs) -> isize {
 				.expect("Unable to write to init-pipe!");
 
 			info!("Runh init setup complete. Now waiting for signal to execv!");
+
+			//TODO: Close log pipe (somehow?)
 
 			let mut exec_fifo = OpenOptions::new()
 				.custom_flags(libc::O_CLOEXEC)

@@ -1,9 +1,12 @@
 use chrono::Local;
 use log::{set_boxed_logger, set_max_level, Level, LevelFilter, Metadata, Record};
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::to_string;
 use std::fs::File;
 use std::io::Write;
+use std::os::unix::prelude::FromRawFd;
+use std::os::unix::prelude::RawFd;
 use std::sync::Mutex;
 
 enum LogFormat {
@@ -11,11 +14,11 @@ enum LogFormat {
 	JSON,
 }
 
-#[derive(Serialize)]
-struct LogEntry {
-	level: String,
-	msg: String,
-	time: String,
+#[derive(Serialize, Deserialize)]
+pub struct LogEntry {
+	pub level: String,
+	pub msg: String,
+	pub time: String,
 }
 
 struct RunhLogger<W: Write + Send + 'static> {
@@ -80,8 +83,16 @@ impl<W: Write + Send + 'static> RunhLogger<W> {
 }
 
 pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<&str>) {
-	let log_file =
-		log_path.map(|path| std::fs::File::create(path).expect("Could not create new log file!"));
+	let log_file = log_path
+		.map(|path| std::fs::File::create(path).expect("Could not create new log file!"))
+		.or_else(|| {
+			if let Ok(log_fd) = std::env::var("RUNH_LOG_PIPE") {
+				let pipe_fd: i32 = log_fd.parse().expect("RUNH_LOG_PIPE was not an integer!");
+				unsafe { Some(File::from_raw_fd(RawFd::from(pipe_fd))) }
+			} else {
+				None
+			}
+		});
 	let log_format = log_format.map_or(LogFormat::TEXT, |fmt| match fmt {
 		"json" => LogFormat::JSON,
 		_ => LogFormat::TEXT,
