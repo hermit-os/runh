@@ -116,6 +116,12 @@ pub fn main() {
 				.possible_values(&["text", "json"])
 				.help("set the log format"),
 		)
+		.arg(
+			Arg::with_name("SYSTEMD_CGROUP")
+				.long("systemd-cgroup")
+				.takes_value(false)
+				.help("Currently unimplemented!")
+		)
 		.subcommand(
 			SubCommand::with_name("spec")
 				.about("Create a new specification file")
@@ -153,6 +159,12 @@ pub fn main() {
 						.takes_value(true)
 						.required(false)
 						.help("File to write the process id to"),
+				)
+				.arg(
+					Arg::with_name("CONSOLE_SOCKET")
+						.long("console-socket")
+						.takes_value(true)
+						.help("Path to an AF_UNIX socket for console IO")
 				),
 		)
 		.subcommand(
