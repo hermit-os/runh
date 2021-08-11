@@ -286,6 +286,18 @@ fn init_stage(args: SetupArgs) -> isize {
 				.parse()
 				.expect("RUNH_FIFOFD was not an integer!");
 
+			//Safe log_pipe_fd, so we can close it after setup is done.
+			let log_pipe_fd: Option<RawFd> = if let Ok(log_fd) = std::env::var("RUNH_LOG_PIPE") {
+				Some(RawFd::from(
+					log_fd
+						.parse::<i32>()
+						.expect("RUNH_LOG_PIPE was not an integer!"),
+				))
+			} else {
+				warn!("RUNH_LOG_PIPE was not set for init-process, so no log forwarding will happen! Continuing anyway...");
+				None
+			};
+
 			unsafe {
 				libc::clearenv();
 			}
@@ -433,7 +445,11 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			info!("Runh init setup complete. Now waiting for signal to execv!");
 
-			//TODO: Close log pipe (somehow?)
+			//Close log pipe. All log calls after this should fail due to the log file being closed.
+			if let Some(log_pipe_fd) = log_pipe_fd {
+				debug!("Closing log pipe...");
+				nix::unistd::close(log_pipe_fd).expect("Could not close log pipe fd!");
+			}
 
 			let mut exec_fifo = OpenOptions::new()
 				.custom_flags(libc::O_CLOEXEC)
@@ -444,14 +460,14 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			write!(exec_fifo, "\0").expect("Could not write to exec fifo!");
 
-			debug!("Fifo was opened! Starting container process...");
-
-			let error = std::process::Command::new(exec_path_abs)
-				.arg0(exec_args.get(0).unwrap())
-				.args(exec_args.get(1..).unwrap())
-				.envs(std::env::vars())
-				.exec();
-
+			let mut cmd = std::process::Command::new(exec_path_abs);
+			cmd.arg0(exec_args.get(0).unwrap());
+			if exec_args.len() > 1 {
+				cmd.args(exec_args.get(1..).unwrap());
+			}
+			cmd.envs(std::env::vars());
+			let error = cmd.exec();
+			//This point should not be reached on successful exec
 			panic!("exec failed with error {}", error);
 		}
 	}
