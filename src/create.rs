@@ -102,7 +102,6 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 				break;
 			}
 		}
-		debug!("Encountered error while reading from log pipe, closing forwarder...");
 	});
 
 	//Pass spec file
@@ -142,7 +141,11 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.spawn()
 		.expect("Unable to spawn runh init process");
 
-	debug!("Started init process. Waiting for first message...");
+	debug!("Started init process. Closing child fds in create process.");
+	nix::unistd::close(child_socket_fd).expect("Could not close child_socket_fd!");
+	nix::unistd::close(child_log_fd).expect("Could not close child_log_fd!");
+
+	debug!("Waiting for first message from child...");
 	let mut init_pipe = unsafe { File::from_raw_fd(parent_socket_fd) };
 	let mut buffer: [u8; 1] = [1];
 	init_pipe

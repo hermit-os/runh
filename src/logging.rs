@@ -46,7 +46,11 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 					})
 					.unwrap(),
 				};
-				writeln!(file, "{}", message).unwrap();
+				if let Err(err) = writeln!(file, "{}", message) {
+					println!("ERROR in logger: {} Writing to stdout instead!", err);
+					self.print_level(record.level());
+					println!(" {}", record.args());
+				}
 			} else {
 				self.print_level(record.level());
 				println!(" {}", record.args());
