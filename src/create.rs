@@ -153,8 +153,13 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 		.expect("Could not read from init pipe!");
 	debug!("Read from init pipe: {}", buffer[0]);
 
-	let rootfs_path = PathBuf::from(bundle.unwrap().to_string() + "/rootfs");
-	let rootfs_path_str = std::fs::canonicalize(rootfs_path)
+	let rootfs_path = PathBuf::from(&container.spec().root.as_ref().unwrap().path);
+	let rootfs_path_abs = if rootfs_path.is_absolute() {
+		rootfs_path
+	} else {
+		PathBuf::from(bundle.unwrap()).join(rootfs_path)
+	};
+	let rootfs_path_str = std::fs::canonicalize(rootfs_path_abs)
 		.expect("Could not parse path to rootfs!")
 		.as_os_str()
 		.to_str()

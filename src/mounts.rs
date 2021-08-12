@@ -31,8 +31,6 @@ pub fn configure_mounts(
 	rootfs: &PathBuf,
 	mount_label: Option<String>,
 ) {
-	//TODO: Set mount type to "bind" if the bind or rbind option is set
-
 	for mount in mounts {
 		let mount_destination = mount.destination.trim_start_matches("/");
 		let destination = &rootfs.join(mount_destination.to_owned());
@@ -65,10 +63,96 @@ pub fn configure_mounts(
 		}
 		if destination_resolved.starts_with(&rootfs) {
 			debug!("Mounting {:?}", destination_resolved);
-			match mount.typ.as_ref().and_then(|x| Some(x.as_str())) {
-				Some("sysfs") | Some("proc") => {
-					if destination_resolved.is_dir() || !destination_resolved.exists() {
+
+			let is_bind_mount = mount
+				.options
+				.as_ref()
+				.and_then(|options| {
+					Some(
+						options.contains(&"bind".to_string())
+							|| options.contains(&"rbind".to_string()),
+					)
+				})
+				.unwrap_or(false);
+			if is_bind_mount {
+				if !mount_src.exists() {
+					panic!(
+						"Tried to bind-mount source {:?} which does not exist!",
+						mount_src
+					);
+				}
+				if destination_resolved.starts_with(&rootfs.join("proc")) {
+					panic!(
+						"Tried to mount source {:?} at destination {:?} which is in /proc",
+						mount_src, mount_dest
+					);
+				} else {
+					if destination_resolved.is_dir() {
 						create_all_dirs(&destination_resolved);
+					} else {
+						create_all_dirs(&PathBuf::from(&destination_resolved.parent().expect(
+							format!("Could not mount to destination {:?} which is not a directory and has no parent dir!", destination_resolved).as_str())));
+						let _ = OpenOptions::new()
+							.mode(0o755)
+							.create(true)
+							.write(true)
+							.open(&destination_resolved)
+							.expect(
+								format!(
+									"Could not create destination for bind mount at {:?}",
+									destination_resolved
+								)
+								.as_str(),
+							);
+					}
+
+					mount_with_flags(
+						"bind",
+						&mount_src,
+						&mount_dest,
+						&destination_resolved,
+						mount_options.clone(),
+						mount_label.as_ref(),
+					);
+
+					let mut mount_options_copy = mount_options.clone();
+
+					mount_options_copy.mount_flags.remove(MsFlags::MS_REC);
+					mount_options_copy.mount_flags.remove(MsFlags::MS_REMOUNT);
+					mount_options_copy.mount_flags.remove(MsFlags::MS_BIND);
+
+					if !mount_options_copy.mount_flags.is_empty() {
+						remount(
+							"bind",
+							&mount_src,
+							&mount_dest,
+							&destination_resolved,
+							mount_options,
+						);
+					}
+					//TODO: Relabel source (?)
+				}
+			} else {
+				match mount.typ.as_ref().and_then(|x| Some(x.as_str())) {
+					Some("sysfs") | Some("proc") => {
+						if destination_resolved.is_dir() || !destination_resolved.exists() {
+							create_all_dirs(&destination_resolved);
+							mount_with_flags(
+								mount_device,
+								&mount_src,
+								&mount_dest,
+								&destination_resolved,
+								mount_options,
+								None,
+							);
+						} else {
+							panic!("Could not mount {:?}! sysfs and proc filesystems can only be mounted on directories!", destination_resolved);
+						}
+					}
+					Some("mqueue") => {
+						if !destination_resolved.exists() {
+							create_all_dirs(&destination_resolved);
+						}
 						mount_with_flags(
 							mount_device,
 							&mount_src,
@@ -77,68 +161,12 @@ pub fn configure_mounts(
 							mount_options,
 							None,
 						);
-					} else {
-						panic!("Could not mount {:?}! sysfs and proc filesystems can only be mounted on directories!", destination_resolved);
 					}
-				}
-				Some("mqueue") => {
-					if !destination_resolved.exists() {
-						create_all_dirs(&destination_resolved);
-					}
-					mount_with_flags(
-						mount_device,
-						&mount_src,
-						&mount_dest,
-						&destination_resolved,
-						mount_options,
-						None,
-					);
-				}
-				Some("tmpfs") => {
-					if !destination_resolved.exists() {
-						create_all_dirs(&destination_resolved);
-					}
-					let is_read_only = mount_options.mount_flags.contains(MsFlags::MS_RDONLY);
-					mount_with_flags(
-						mount_device,
-						&mount_src,
-						&mount_dest,
-						&destination_resolved,
-						mount_options.clone(),
-						mount_label.as_ref(),
-					);
-					if is_read_only {
-						remount(
-							mount_device,
-							&mount_src,
-							&mount_dest,
-							&destination_resolved,
-							mount_options,
-						);
-					}
-				}
-				Some("bind") => todo!("Mount bind"),
-				Some("cgroup") => {
-					//TODO: Additional checks for cGroup v1 vs v2,
-					//		mount might fail when the cgroup-NS was not unshared earlier
-					create_all_dirs(&destination_resolved);
-					mount_with_flags(
-						"cgroup2",
-						&mount_src,
-						&mount_dest,
-						&destination_resolved,
-						mount_options.clone(),
-						mount_label.as_ref(),
-					);
-				}
-				_ => {
-					if destination_resolved.starts_with(&rootfs.join("proc")) {
-						panic!(
-							"Tried to mount source {:?} at destination {:?} which is in /proc",
-							mount_src, mount_dest
-						);
-					} else {
-						create_all_dirs(&destination_resolved);
+					Some("tmpfs") => {
+						if !destination_resolved.exists() {
+							create_all_dirs(&destination_resolved);
+						}
+						let is_read_only = mount_options.mount_flags.contains(MsFlags::MS_RDONLY);
 						mount_with_flags(
 							mount_device,
 							&mount_src,
@@ -147,6 +175,46 @@ pub fn configure_mounts(
 							mount_options.clone(),
 							mount_label.as_ref(),
 						);
+						if is_read_only {
+							remount(
+								mount_device,
+								&mount_src,
+								&mount_dest,
+								&destination_resolved,
+								mount_options,
+							);
+						}
+					}
+					Some("cgroup") => {
+						//TODO: Additional checks for cGroup v1 vs v2,
+						//		mount might fail when the cgroup-NS was not unshared earlier
+						create_all_dirs(&destination_resolved);
+						mount_with_flags(
+							"cgroup2",
+							&mount_src,
+							&mount_dest,
+							&destination_resolved,
+							mount_options.clone(),
+							mount_label.as_ref(),
+						);
+					}
+					_ => {
+						if destination_resolved.starts_with(&rootfs.join("proc")) {
+							panic!(
+								"Tried to mount source {:?} at destination {:?} which is in /proc",
+								mount_src, mount_dest
+							);
+						} else {
+							create_all_dirs(&destination_resolved);
+							mount_with_flags(
+								mount_device,
+								&mount_src,
+								&mount_dest,
+								&destination_resolved,
+								mount_options.clone(),
+								mount_label.as_ref(),
+							);
+						}
 					}
 				}
 			}

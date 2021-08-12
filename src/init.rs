@@ -319,47 +319,8 @@ fn init_stage(args: SetupArgs) -> isize {
 			//TODO: Setup network and routing
 
 			//Setup devices, mountpoints and file system
-			let mut mount_flags = MsFlags::empty();
-			mount_flags.insert(MsFlags::MS_REC);
-			mount_flags.insert(match args.config.spec.linux.as_ref().unwrap().rootfs_propagation.as_ref().and_then(|x| Some(x.as_str())) {
-				Some("shared") => MsFlags::MS_SHARED,
-				Some("slave") => MsFlags::MS_SLAVE,
-				Some("private") => MsFlags::MS_PRIVATE,
-				Some("unbindable") => MsFlags::MS_UNBINDABLE,
-				Some(_) => panic!("Value of rootfsPropagation did not match any known option! Given value: {}", &args.config.spec.linux.as_ref().unwrap().rootfs_propagation.as_ref().unwrap()),
-				None => MsFlags::MS_SLAVE
-			});
-
-			nix::mount::mount::<Option<&str>, str, Option<&str>, Option<&str>>(
-				None,
-				"/",
-				None,
-				mount_flags,
-				None,
-			)
-			.expect(
-				format!(
-					"Could not mount rootfs with given MsFlags {:?}",
-					mount_flags
-				)
-				.as_str(),
-			);
-
-			//TODO: Make parent mount private (?)
-			let mut bind_mount_flags = MsFlags::empty();
-			bind_mount_flags.insert(MsFlags::MS_BIND);
-			bind_mount_flags.insert(MsFlags::MS_REC);
-
 			let rootfs_path = PathBuf::from(args.config.rootfs);
-
-			nix::mount::mount::<PathBuf, PathBuf, str, Option<&str>>(
-				Some(&rootfs_path),
-				&rootfs_path,
-				Some("bind"),
-				bind_mount_flags,
-				None,
-			)
-			.expect(format!("Could not bind-mount rootfs at {:?}", rootfs_path).as_str());
+			rootfs::mount_rootfs(&args.config.spec, &rootfs_path);
 
 			if let Some(mounts) = args.config.spec.mounts {
 				mounts::configure_mounts(
