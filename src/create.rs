@@ -191,15 +191,16 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	}
 	debug!("Waiting for runh init to get ready to execv!");
 	let mut sig_buffer = [0u8];
-	init_pipe
-		.read_exact(&mut sig_buffer)
-		.expect("Could not read from init-pipe!");
 
-	if sig_buffer[0] == crate::consts::INIT_READY_TO_EXECV {
-		info!("Runh init ran successfully and is now ready to execv. Waiting for log pipe to close...");
+	if let Err(x) = init_pipe.read_exact(&mut sig_buffer) {
 		log_forwarder.join().expect("Log forwarder did panic!");
-		return;
+		panic!("Could not read from init-pipe! Init probably died: {}", x);
 	} else {
-		panic!("Received invalid signal from runh init!");
+		if sig_buffer[0] == crate::consts::INIT_READY_TO_EXECV {
+			info!("Runh init ran successfully and is now ready to execv. Waiting for log pipe to close...");
+		} else {
+			panic!("Received invalid signal from runh init!");
+		}
 	}
+	return;
 }
