@@ -9,6 +9,8 @@ use std::{
 	path::PathBuf,
 };
 
+use crate::rootfs;
+
 #[derive(Clone)]
 struct MountOptions {
 	mount_flags: MsFlags,
@@ -29,12 +31,11 @@ impl Default for MountOptions {
 pub fn configure_mounts(
 	mounts: &Vec<runtime::Mount>,
 	rootfs: &PathBuf,
-	mount_label: Option<String>,
-) {
-	for mount in mounts {
-		let mount_destination = mount.destination.trim_start_matches("/");
-		let destination = &rootfs.join(mount_destination.to_owned());
+	mount_label: &Option<String>,
+) -> bool {
+	let mut setup_dev = true;
 
+	for mount in mounts {
 		//Resolve mount source
 		let mut mount_src = PathBuf::from(&mount.source.as_ref().unwrap());
 		if !mount_src.is_absolute() {
@@ -50,17 +51,8 @@ pub fn configure_mounts(
 			.and_then(|options| Some(parse_mount_options(options)))
 			.unwrap_or_default();
 
-		let mut destination_resolved = PathBuf::new();
+		let destination_resolved = rootfs::resolve_in_rootfs(mount.destination.as_str(), rootfs);
 
-		// Verfify destination path lies within rootfs folder (no symlinks out of it)
-		for subpath in destination.iter() {
-			destination_resolved.push(subpath);
-			if destination_resolved.exists() {
-				destination_resolved = destination_resolved.canonicalize().expect(
-					format!("Could not resolve mount path at {:?}", destination_resolved).as_str(),
-				);
-			}
-		}
 		if destination_resolved.starts_with(&rootfs) {
 			debug!("Mounting {:?}", destination_resolved);
 
@@ -75,6 +67,10 @@ pub fn configure_mounts(
 				})
 				.unwrap_or(false);
 			if is_bind_mount {
+				if destination_resolved == PathBuf::from(&rootfs).join("dev") {
+					setup_dev = false;
+				}
+
 				if !mount_src.exists() {
 					panic!(
 						"Tried to bind-mount source {:?} which does not exist!",
@@ -225,8 +221,7 @@ pub fn configure_mounts(
 			);
 		}
 	}
-
-	//TODO: Setup device mounts
+	return setup_dev;
 }
 
 fn remount(

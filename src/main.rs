@@ -8,6 +8,7 @@ mod create;
 mod delete;
 //mod exec;
 mod consts;
+mod devices;
 mod flags;
 mod init;
 mod list;
