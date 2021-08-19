@@ -7,6 +7,22 @@ use std::{
 use nix::mount::{MntFlags, MsFlags};
 use oci_spec::runtime::Spec;
 
+pub fn resolve_in_rootfs(destination_rel: &str, rootfs: &PathBuf) -> PathBuf {
+	let destination = rootfs.join(destination_rel.trim_start_matches("/"));
+	let mut destination_resolved = PathBuf::new();
+
+	// Verfify destination path lies within rootfs folder (no symlinks out of it)
+	for subpath in destination.iter() {
+		destination_resolved.push(subpath);
+		if destination_resolved.exists() {
+			destination_resolved = destination_resolved.canonicalize().expect(
+				format!("Could not resolve mount path at {:?}", destination_resolved).as_str(),
+			);
+		}
+	}
+	destination_resolved
+}
+
 pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 	let mut mount_flags = MsFlags::empty();
 	mount_flags.insert(MsFlags::MS_REC);

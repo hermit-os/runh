@@ -1,6 +1,6 @@
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
-use std::os::unix::prelude::{AsRawFd, IntoRawFd, OpenOptionsExt};
+use std::os::unix::prelude::{IntoRawFd, OpenOptionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::{
@@ -9,15 +9,14 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
-use crate::mounts;
 use crate::namespaces;
+use crate::{devices, mounts};
 use crate::{flags, paths, rootfs};
 use capctl::prctl;
-use nix::mount::MsFlags;
 use nix::sched::CloneFlags;
 use nix::sys::socket;
 use nix::unistd::{Gid, Pid, Uid};
-use oci_spec::runtime::{self, Spec};
+use oci_spec::runtime::Spec;
 
 #[derive(Clone, Copy, Debug, Default)]
 struct SocketPair {
@@ -106,8 +105,10 @@ pub fn init_container() {
 	let spec_file = unsafe { File::from_raw_fd(RawFd::from(spec_fd)) };
 	let spec: Spec = serde_json::from_reader(&spec_file).expect("Unable to read spec file!");
 
+	let linux_spec = spec.linux.as_ref().unwrap();
+
 	debug!("generate clone-flags");
-	let cloneflags = if let Some(namespaces) = &spec.linux.as_ref().unwrap().namespaces {
+	let cloneflags = if let Some(namespaces) = &linux_spec.namespaces {
 		flags::generate_cloneflags(namespaces)
 	} else {
 		CloneFlags::empty()
@@ -176,6 +177,7 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 }
 
 fn init_stage(args: SetupArgs) -> isize {
+	let linux_spec = args.config.spec.linux.as_ref().unwrap();
 	match args.stage {
 		InitStage::PARENT => {
 			debug!("enter init_stage parent");
@@ -218,7 +220,7 @@ fn init_stage(args: SetupArgs) -> isize {
 		InitStage::CHILD => {
 			debug!("enter init_stage child");
 			let _ = prctl::set_name("runh:CHILD");
-			if let Some(namespaces) = &args.config.spec.linux.as_ref().unwrap().namespaces {
+			if let Some(namespaces) = &linux_spec.namespaces {
 				namespaces::join_namespaces(namespaces)
 			}
 
@@ -322,12 +324,18 @@ fn init_stage(args: SetupArgs) -> isize {
 			let rootfs_path = PathBuf::from(args.config.rootfs);
 			rootfs::mount_rootfs(&args.config.spec, &rootfs_path);
 
-			if let Some(mounts) = args.config.spec.mounts {
+			let setup_dev = if let Some(mounts) = args.config.spec.mounts {
 				mounts::configure_mounts(
 					&mounts,
 					&rootfs_path,
-					args.config.spec.linux.unwrap().mount_label,
-				);
+					&args.config.spec.linux.as_ref().unwrap().mount_label,
+				)
+			} else {
+				true
+			};
+
+			if setup_dev {
+				devices::create_devices(&linux_spec.devices, &rootfs_path);
 			}
 
 			nix::unistd::chdir(&rootfs_path).expect(
