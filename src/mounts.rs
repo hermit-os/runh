@@ -87,7 +87,7 @@ pub fn configure_mounts(
 						mount_src, mount_dest
 					);
 				} else {
-					if destination_resolved.is_dir() {
+					if mount_src.is_dir() {
 						create_all_dirs(&destination_resolved);
 					} else {
 						create_all_dirs(&PathBuf::from(&destination_resolved.parent().expect(
