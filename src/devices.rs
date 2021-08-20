@@ -118,3 +118,29 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 		.expect(format!("Could not chown device {}!", dev.path).as_str());
 	}
 }
+
+pub fn setup_ptmx(rootfs: &PathBuf) {
+	let ptmx_path = rootfs.join("dev/ptmx");
+	if ptmx_path.is_dir() {
+		std::fs::remove_dir(&ptmx_path).expect("Could not remove existing /dev/ptmx dir!");
+	} else if ptmx_path.exists() {
+		std::fs::remove_file(&ptmx_path).expect("Could not remove existing /dev/ptmx file!");
+	}
+	nix::unistd::symlinkat("pts/ptmx", None, &ptmx_path)
+		.expect("Could not symlink pts/ptmx to /dev/ptmx!");
+}
+
+pub fn setup_dev_symlinks(rootfs: &PathBuf) {
+	if PathBuf::from("/proc/kcore").exists() {
+		nix::unistd::symlinkat("/proc/kcore", None, &rootfs.join("dev/core"))
+			.expect("Could not symlink /proc/kcore to /dev/core");
+	}
+	nix::unistd::symlinkat("/proc/self/fd", None, &rootfs.join("dev/fd"))
+		.expect("Could not symlink /proc/self/fd to /dev/fd");
+	nix::unistd::symlinkat("/proc/self/fd/0", None, &rootfs.join("dev/stdin"))
+		.expect("Could not symlink /proc/self/fd/0 to /dev/stdin");
+	nix::unistd::symlinkat("/proc/self/fd/1", None, &rootfs.join("dev/stdout"))
+		.expect("Could not symlink /proc/self/fd/1 to /dev/stdout");
+	nix::unistd::symlinkat("/proc/self/fd/2", None, &rootfs.join("dev/stderr"))
+		.expect("Could not symlink /proc/self/fd/2 to /dev/stderr");
+}

@@ -30,7 +30,7 @@ libc = "0.2.94"
 cgroups-rs = "0.2.5"
 oci-spec = { git = "https://github.com/JTS22/oci-spec.git" }
 fork = "0.1.18"
-nix = "0.10.0"
+nix = "0.22.1"
 command-fds = "0.2.0"
 capctl = "0.2.0"
 

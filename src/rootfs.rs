@@ -53,14 +53,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 		},
 	);
 
-	nix::mount::mount::<Option<&str>, str, Option<&str>, Option<&str>>(
-		None,
-		"/",
-		None,
-		mount_flags,
-		None,
-	)
-	.expect(
+	nix::mount::mount::<str, str, str, str>(None, "/", None, mount_flags, None).expect(
 		format!(
 			"Could not mount rootfs with given MsFlags {:?}",
 			mount_flags
@@ -75,7 +68,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 
 	debug!("Mounting rootfs at {:?}", rootfs_path);
 
-	nix::mount::mount::<PathBuf, PathBuf, str, Option<&str>>(
+	nix::mount::mount::<PathBuf, PathBuf, str, str>(
 		Some(rootfs_path),
 		rootfs_path,
 		Some("bind"),
@@ -89,10 +82,8 @@ pub fn set_rootfs_read_only() {
 	let mut flags = MsFlags::MS_BIND;
 	flags.insert(MsFlags::MS_REMOUNT);
 	flags.insert(MsFlags::MS_RDONLY);
-	nix::mount::mount::<Option<&str>, str, Option<&str>, Option<&str>>(
-		None, "/", None, flags, None,
-	)
-	.expect("Could not change / mount type!");
+	nix::mount::mount::<str, str, str, str>(None, "/", None, flags, None)
+		.expect("Could not change / mount type!");
 	//TODO: Mount again with flags |= statfs("/").flags
 }
 
@@ -122,14 +113,8 @@ pub fn pivot_root(rootfs: &PathBuf) {
 	let mut mount_flags = MsFlags::MS_SLAVE;
 	mount_flags.insert(MsFlags::MS_REC);
 
-	nix::mount::mount::<Option<&str>, str, Option<&str>, Option<&str>>(
-		None,
-		".",
-		None,
-		mount_flags,
-		None,
-	)
-	.expect("Could not change old_root propagation type!");
+	nix::mount::mount::<str, str, str, str>(None, ".", None, mount_flags, None)
+		.expect("Could not change old_root propagation type!");
 
 	nix::mount::umount2(".", MntFlags::MNT_DETACH).expect("Could not unmount cwd!");
 
