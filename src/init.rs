@@ -319,6 +319,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//TODO: Create new session keyring if requested
 			//TODO: Setup network and routing
+			
 
 			//Setup devices, mountpoints and file system
 			let rootfs_path = PathBuf::from(args.config.rootfs);
@@ -336,6 +337,8 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			if setup_dev {
 				devices::create_devices(&linux_spec.devices, &rootfs_path);
+				devices::setup_ptmx(&rootfs_path);
+				devices::setup_dev_symlinks(&rootfs_path);
 			}
 
 			nix::unistd::chdir(&rootfs_path).expect(
@@ -355,7 +358,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				nix::unistd::chdir("/").expect("Could not chdir to / after chroot!");
 			}
 
-			//TODO: setup /dev/null
+			//TODO: re-open /dev/null in the container if any std-fd points to it
 
 			let cwd = &args.config.spec.process.as_ref().unwrap().cwd;
 			if !cwd.is_empty() {
