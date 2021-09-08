@@ -81,7 +81,6 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 		debug!("Creating device {}", dev.path.as_str());
 
 		if PathBuf::from(dev.path.as_str()).starts_with("/dev/ptmx") {
-			//TODO: setup /dev/ptmx
 			continue;
 		}
 		let destination_resolved = rootfs::resolve_in_rootfs(dev.path.as_str(), rootfs);

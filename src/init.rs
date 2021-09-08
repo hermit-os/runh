@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::namespaces;
-use crate::{devices, mounts};
+use crate::{console, devices, mounts};
 use crate::{flags, paths, rootfs};
 use capctl::prctl;
 use nix::sched::CloneFlags;
@@ -300,6 +300,23 @@ fn init_stage(args: SetupArgs) -> isize {
 				None
 			};
 
+			let mut console_fd = 0;
+
+			if args
+				.config
+				.spec
+				.process
+				.as_ref()
+				.unwrap()
+				.terminal
+				.unwrap_or(false)
+			{
+				console_fd = env::var("RUNH_CONSOLE")
+					.expect("No console fd given!")
+					.parse()
+					.expect("RUNH_CONSOLE was not an integer!");
+			}
+
 			unsafe {
 				libc::clearenv();
 			}
@@ -319,7 +336,6 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//TODO: Create new session keyring if requested
 			//TODO: Setup network and routing
-			
 
 			//Setup devices, mountpoints and file system
 			let rootfs_path = PathBuf::from(args.config.rootfs);
@@ -365,7 +381,37 @@ fn init_stage(args: SetupArgs) -> isize {
 				mounts::create_all_dirs(&PathBuf::from(cwd));
 			}
 
-			//TODO: Setup console
+			//Setup console
+			if args
+				.config
+				.spec
+				.process
+				.as_ref()
+				.unwrap()
+				.terminal
+				.unwrap_or(false)
+			{
+				let console_socket = unsafe { File::from_raw_fd(RawFd::from(console_fd)) };
+
+				let win_size = args
+					.config
+					.spec
+					.process
+					.as_ref()
+					.unwrap()
+					.console_size
+					.as_ref()
+					.and_then(|b| {
+						Some(nix::pty::Winsize {
+							ws_row: b.height as u16,
+							ws_col: b.width as u16,
+							ws_xpixel: 0,
+							ws_ypixel: 0,
+						})
+					});
+
+				console::setup_console(console_socket, win_size.as_ref());
+			}
 
 			//Finalize rootfs
 			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNS) {

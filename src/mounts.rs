@@ -1,4 +1,4 @@
-use nix::mount::MsFlags;
+use nix::{mount::MsFlags, sys::stat::Mode};
 use oci_spec::runtime;
 use std::{
 	fs::{DirBuilder, File, OpenOptions},
@@ -26,6 +26,28 @@ impl Default for MountOptions {
 			data: None,
 		}
 	}
+}
+
+pub fn mount_console(slave_path: &PathBuf) {
+	let old_umask = nix::sys::stat::umask(Mode::empty());
+	let _ = OpenOptions::new()
+		.mode(0o666)
+		.create(true)
+		.write(true)
+		.read(true)
+		.open("/dev/console")
+		.expect("Could not create /dev/console");
+
+	nix::mount::mount::<PathBuf, str, str, str>(
+		Some(slave_path),
+		"/dev/console",
+		Some("bind"),
+		MsFlags::MS_BIND,
+		None,
+	)
+	.expect("Could not mount console at /dev/console!");
+
+	let _ = nix::sys::stat::umask(old_umask);
 }
 
 pub fn configure_mounts(
