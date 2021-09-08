@@ -10,13 +10,20 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
+use std::os::unix::net::UnixStream;
 use std::os::unix::prelude::FromRawFd;
+use std::os::unix::prelude::IntoRawFd;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::container::OCIContainer;
 
-pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<&str>) {
+pub fn create_container(
+	id: Option<&str>,
+	bundle: Option<&str>,
+	pidfile: Option<&str>,
+	console_socket: Option<&str>,
+) {
 	let mut path = crate::get_project_dir();
 
 	let _ = std::fs::create_dir(path.clone());
@@ -109,41 +116,69 @@ pub fn create_container(id: Option<&str>, bundle: Option<&str>, pidfile: Option<
 	config.push("config.json");
 	let spec_file = File::open(config).expect("Could not open spec file!");
 
+	let mut child_fd_mappings = vec![
+		FdMapping {
+			parent_fd: fifo.as_raw_fd(),
+			child_fd: 3,
+		},
+		FdMapping {
+			parent_fd: child_socket_fd,
+			child_fd: 4,
+		},
+		FdMapping {
+			parent_fd: spec_file.as_raw_fd(),
+			child_fd: 5,
+		},
+		FdMapping {
+			parent_fd: child_log_fd,
+			child_fd: 6,
+		},
+	];
+
+	//Setup console socket
+	let socket_fds = if let Some(console_socket_path) = console_socket {
+		let stream = UnixStream::connect(PathBuf::from(console_socket_path)).expect(
+			format!(
+				"Could not connect to socket named by console-socket path at {}",
+				console_socket_path
+			)
+			.as_str(),
+		);
+		let sock_stream_fd = stream.into_raw_fd();
+		let socket_fd_copy =
+			nix::unistd::dup(sock_stream_fd).expect("Could not duplicate unix stream fd!");
+		child_fd_mappings.push(FdMapping {
+			parent_fd: socket_fd_copy,
+			child_fd: 7,
+		});
+		Some((socket_fd_copy, sock_stream_fd))
+	} else {
+		None
+	};
+
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
 		.arg("debug")
 		.arg("--log-format")
 		.arg("json")
 		.arg("init")
-		.fd_mappings(vec![
-			FdMapping {
-				parent_fd: fifo.as_raw_fd(),
-				child_fd: 3,
-			},
-			FdMapping {
-				parent_fd: child_socket_fd,
-				child_fd: 4,
-			},
-			FdMapping {
-				parent_fd: spec_file.as_raw_fd(),
-				child_fd: 5,
-			},
-			FdMapping {
-				parent_fd: child_log_fd,
-				child_fd: 6,
-			},
-		])
+		.fd_mappings(child_fd_mappings)
 		.expect("Unable to pass fifo fd to child!")
 		.env("RUNH_FIFOFD", "3")
 		.env("RUNH_INITPIPE", "4")
 		.env("RUNH_SPEC_FILE", "5")
 		.env("RUNH_LOG_PIPE", "6")
+		.env("RUNH_CONSOLE", "7")
 		.spawn()
 		.expect("Unable to spawn runh init process");
 
 	debug!("Started init process. Closing child fds in create process.");
 	nix::unistd::close(child_socket_fd).expect("Could not close child_socket_fd!");
 	nix::unistd::close(child_log_fd).expect("Could not close child_log_fd!");
+	if let Some((socket_fd, stream_fd)) = socket_fds {
+		nix::unistd::close(socket_fd).expect("Could not close console socket_fd!");
+		nix::unistd::close(stream_fd).expect("Could not close console stream_fd!");
+	}
 
 	debug!("Waiting for first message from child...");
 	let mut init_pipe = unsafe { File::from_raw_fd(parent_socket_fd) };

@@ -7,6 +7,7 @@ mod container;
 mod create;
 mod delete;
 //mod exec;
+mod console;
 mod consts;
 mod devices;
 mod flags;
@@ -56,6 +57,7 @@ fn parse_matches(app: App) {
 			sub_m.value_of("CONTAINER_ID"),
 			sub_m.value_of("BUNDLE"),
 			sub_m.value_of("PID_FILE"),
+			sub_m.value_of("CONSOLE_SOCKET"),
 		),
 		("delete", Some(sub_m)) => delete_container(sub_m.value_of("CONTAINER_ID")),
 		("start", Some(sub_m)) => start_container(sub_m.value_of("CONTAINER_ID")),

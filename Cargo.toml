@@ -26,7 +26,7 @@ serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0.62"
 dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git" }
 chrono = "0.4.19"
-libc = "0.2.94"
+libc = "0.2.101"
 cgroups-rs = "0.2.5"
 oci-spec = { git = "https://github.com/JTS22/oci-spec.git" }
 fork = "0.1.18"
