@@ -13,6 +13,8 @@ use crate::mounts;
 
 nix::ioctl_write_ptr_bad!(ioctl_set_winsize, libc::TIOCSWINSZ, libc::winsize);
 
+nix::ioctl_write_int_bad!(ioctl_set_ctty, libc::TIOCSCTTY);
+
 pub fn setup_console(console_socket: File, win_size: Option<&nix::pty::Winsize>) {
 	// Open a new PTY master
 	let master_fd = nix::pty::posix_openpt(OFlag::O_RDWR | OFlag::O_CLOEXEC)
@@ -52,5 +54,9 @@ pub fn setup_console(console_socket: File, win_size: Option<&nix::pty::Winsize>)
 		nix::unistd::dup3(slave_fd, i, OFlag::empty())
 			.expect(format!("Could not dup3 pty slave_fd onto fd {}", i).as_str());
 	}
+
+    unsafe { ioctl_set_ctty(0, 0) }
+			.expect("Could not set ctty!");
+
 	//master_fd auto-closes on drop
 }
