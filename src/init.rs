@@ -9,13 +9,14 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
-use crate::namespaces;
 use crate::{console, devices, mounts};
 use crate::{flags, paths, rootfs};
+use crate::{namespaces, network};
 use capctl::prctl;
 use nix::sched::CloneFlags;
 use nix::sys::socket;
 use nix::unistd::{Gid, Pid, Uid};
+use oci_spec::runtime;
 use oci_spec::runtime::Spec;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -336,6 +337,31 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//TODO: Create new session keyring if requested
 			//TODO: Setup network and routing
+			let mut setup_network = false;
+			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNET) {
+				for ns in args
+					.config
+					.spec
+					.linux
+					.as_ref()
+					.unwrap()
+					.namespaces
+					.as_ref()
+					.unwrap()
+				{
+					match ns.typ {
+						runtime::LinuxNamespaceType::network => {
+							if ns.path.is_none() || ns.path.as_ref().unwrap().is_empty() {
+								setup_network = true;
+							}
+						}
+						_ => {}
+					}
+				}
+			}
+			if setup_network {
+				network::setup_network();
+			}
 
 			//Setup devices, mountpoints and file system
 			let rootfs_path = PathBuf::from(args.config.rootfs);
@@ -355,6 +381,25 @@ fn init_stage(args: SetupArgs) -> isize {
 				devices::create_devices(&linux_spec.devices, &rootfs_path);
 				devices::setup_ptmx(&rootfs_path);
 				devices::setup_dev_symlinks(&rootfs_path);
+			}
+
+			//Run pre-start hooks
+			debug!("Signalling parent to run pre-start hooks");
+			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
+			init_pipe
+				.write(&[crate::consts::INIT_REQ_PRESTART_HOOKS])
+				.expect("Unable to write to init-pipe!");
+
+			let mut sig_buffer = [0u8];
+			init_pipe
+				.read_exact(&mut sig_buffer)
+				.expect("Could not read from init pipe!");
+			if sig_buffer[0] != crate::consts::CREATE_ACK_PRESTART_HOOKS {
+				panic!(
+					"Received invalid signal from runh init! Expected {:x}, got {:x}",
+					crate::consts::CREATE_ACK_PRESTART_HOOKS,
+					sig_buffer[0]
+				);
 			}
 
 			nix::unistd::chdir(&rootfs_path).expect(
@@ -432,6 +477,28 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//TODO: Apply apparmor profile
 			//TODO: Write sysctl keys
+			if let Some(sysctl) = args.config.spec.linux.as_ref().unwrap().sysctl.as_ref() {
+				for (key, value) in sysctl {
+					let key_path = key.replace(".", "/");
+					let full_path = PathBuf::from("/proc/sys").join(key_path);
+					let mut sysctl_file = OpenOptions::new()
+						.mode(0o644)
+						.create(true)
+						.write(true)
+						.open(&full_path)
+						.expect(
+							format!("Could not create sysctl entry at {:?}", full_path).as_str(),
+						);
+					sysctl_file.write(value.as_bytes()).expect(
+						format!(
+							"Could not write value {} to sysctl entry at {:?}",
+							value, full_path
+						)
+						.as_str(),
+					);
+				}
+			}
+
 			//TODO: Manage readonly and mask paths
 
 			// Set no_new_privileges
@@ -456,7 +523,6 @@ fn init_stage(args: SetupArgs) -> isize {
 			info!("Found args-executable: {:?}", exec_path_abs);
 
 			//Tell runh create we are ready to execv
-			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
 			init_pipe
 				.write(&[crate::consts::INIT_READY_TO_EXECV])
 				.expect("Unable to write to init-pipe!");

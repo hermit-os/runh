@@ -5,12 +5,14 @@ use nix::sys::socket::SockFlag;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
+use oci_spec::runtime;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
+use std::os::unix::prelude::CommandExt;
 use std::os::unix::prelude::FromRawFd;
 use std::os::unix::prelude::IntoRawFd;
 use std::path::PathBuf;
@@ -224,8 +226,88 @@ pub fn create_container(
 		let mut file = std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
 		write!(file, "{}", pid).expect("Could not write to pid-file!");
 	}
-	debug!("Waiting for runh init to get ready to execv!");
 	let mut sig_buffer = [0u8];
+
+	debug!("Waiting for runh init to request prestart hooks");
+
+	init_pipe
+		.read_exact(&mut sig_buffer)
+		.expect("Could not read from init pipe!");
+	if sig_buffer[0] != crate::consts::INIT_REQ_PRESTART_HOOKS {
+		panic!(
+			"Received invalid signal from runh init! Expected {:x}, got {:x}",
+			crate::consts::INIT_REQ_PRESTART_HOOKS,
+			sig_buffer[0]
+		);
+	}
+
+	debug!("Running prestart hooks...");
+	if let Some(hooks) = container.spec().hooks.as_ref() {
+		let state = runtime::State {
+			version: String::from("1.0.2"),
+			id: container.id().clone(),
+			status: String::from("created"),
+			pid: Some(pid),
+			bundle: container.bundle().clone(),
+			annotations: container.spec().annotations.clone(),
+		};
+
+		if let Some(prestart_hooks) = hooks.prestart.as_ref() {
+			for hook in prestart_hooks {
+				let mut cmd = std::process::Command::new(&hook.path);
+				if let Some(args) = &hook.args {
+					if !args.is_empty() {
+						cmd.arg0(&args[0]);
+					}
+					if args.len() > 1 {
+						cmd.args(&args[1..]);
+					}
+				}
+				if let Some(env) = &hook.env {
+					for var in env {
+						let (name, value) = var.split_once("=").expect(
+							format!("Could not parse environment variable: {}", var).as_str(),
+						);
+						cmd.env(name, value);
+					}
+				}
+				if let Some(timeout) = hook.timeout {
+					if timeout <= 0 {
+						error!("prestart hook {} has a timeout <= 0!", hook.path);
+					} else {
+						warn!("The timeout set for prestart hook {} is currently unimplemented and will be ignored!", hook.path);
+					}
+				}
+				cmd.stderr(std::process::Stdio::piped());
+				cmd.stdin(std::process::Stdio::piped());
+				let mut child = cmd.spawn().expect(
+					format!("Unable to spawn prestart hook process {}", hook.path).as_str(),
+				);
+				write!(
+					child.stdin.take().unwrap(),
+					"{}",
+					state.to_string().unwrap()
+				)
+				.expect("Could not write container state to hook process stdin!");
+
+				let ret = child.wait_with_output().unwrap();
+				if !ret.status.success() {
+					panic!(
+						"prestart hook {} returned exit status {}. Stderr: {}",
+						hook.path,
+						ret.status,
+						String::from_utf8(ret.stderr).unwrap()
+					);
+				}
+			}
+		}
+	}
+
+	init_pipe
+		.write(&[crate::consts::CREATE_ACK_PRESTART_HOOKS])
+		.expect("Unable to write to init-pipe!");
+
+	debug!("Waiting for runh init to get ready to execv!");
 
 	if let Err(x) = init_pipe.read_exact(&mut sig_buffer) {
 		log_forwarder.join().expect("Log forwarder did panic!");
