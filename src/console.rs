@@ -55,8 +55,7 @@ pub fn setup_console(console_socket: File, win_size: Option<&nix::pty::Winsize>)
 			.expect(format!("Could not dup3 pty slave_fd onto fd {}", i).as_str());
 	}
 
-    unsafe { ioctl_set_ctty(0, 0) }
-			.expect("Could not set ctty!");
+	unsafe { ioctl_set_ctty(0, 0) }.expect("Could not set ctty!");
 
 	//master_fd auto-closes on drop
 }

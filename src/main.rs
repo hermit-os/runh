@@ -16,6 +16,7 @@ mod list;
 mod logging;
 mod mounts;
 mod namespaces;
+mod network;
 mod paths;
 mod pull;
 mod rootfs;
