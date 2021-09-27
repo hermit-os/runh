@@ -58,7 +58,7 @@ pub fn start_container(id: Option<&str>) {
 			let buffer = fs::read(rootfs.clone() + "/" + command).unwrap();
 			let elf = elf::Elf::parse(&buffer).unwrap();
 			let start = if elf.header.e_ident[EI_OSABI] == 0xFF {
-				format!("qemu-system-x86_64 -display none -smp 1 -m 64M -serial stdio -kernel /hermit/rusty-loader -initrd {} -cpu qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand", command)
+				format!("qemu-system-x86_64 -display none -smp 1 -m 64M -serial stdio -kernel /hermit/rusty-loader -initrd {} -cpu qemu64,apic,fsgsbase,rdtscp,xsave,xsaveopt,fxsr,rdrand", command)
 			} else {
 				command.to_string()
 			};
