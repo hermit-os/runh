@@ -204,6 +204,14 @@ pub fn main() {
 						.takes_value(true)
 						.required(true)
 						.help("Id of the container"),
+				)
+				.arg(
+					Arg::with_name("FORCE")
+						.long("force")
+						.short("f")
+						.takes_value(false)
+						.required(false)
+						.help("Currently unimplemented!"),
 				),
 		)
 		.subcommand(
