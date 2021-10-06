@@ -14,27 +14,27 @@ runh is a CLI tool for spawning and running RustyHermit containers.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.38"
+anyhow = "1.0.44"
 clap = { version = "2.33.3", features = ["wrap_help", "suggestions"] }
 colour = { version = "0.6" }
 derive_builder = { version = "0.10.2" }
-futures = "0.3.15"
-tokio = { version = "1.6", features = ["rt-multi-thread"] }
+futures = "0.3.17"
+tokio = { version = "1.12", features = ["rt-multi-thread"] }
 getset = "0.1.1"
 log = { version = "0.4.14", features = ["serde", "std"] }
-serde = { version = "1.0.123", features = ["derive"] }
-serde_json = "1.0.62"
+serde = { version = "1.0.130", features = ["derive"] }
+serde_json = "1.0.68"
 dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git" }
 chrono = "0.4.19"
-libc = "0.2.101"
-cgroups-rs = "0.2.5"
+libc = "0.2.103"
+cgroups-rs = "0.2.6"
 oci-spec = { git = "https://github.com/JTS22/oci-spec.git" }
 fork = "0.1.18"
-nix = "0.22.1"
-command-fds = "0.2.0"
-capctl = "0.2.0"
+nix = "0.23"
+command-fds = "0.2"
+capctl = "0.2"
 
 [dependencies.goblin]
-version = "0.4.0"
+version = "0.4"
 default-features = false
 features = ["elf64", "elf32", "endian_fd", "std"]
