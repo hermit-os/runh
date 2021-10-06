@@ -4,6 +4,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::to_string;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::prelude::FromRawFd;
 use std::os::unix::prelude::RawFd;
@@ -23,6 +24,7 @@ pub struct LogEntry {
 
 struct RunhLogger<W: Write + Send + 'static> {
 	log_file: Mutex<Option<W>>,
+	log_file_internal: Mutex<W>,
 	log_format: LogFormat,
 }
 
@@ -51,6 +53,9 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 					self.print_level(record.level());
 					println!(" {}", record.args());
 				}
+				let mut file_lock_backup = self.log_file_internal.lock().unwrap();
+				let file_backup = &mut *file_lock_backup;
+				writeln!(file_backup, "{}", message).expect("Could not write to backup log file!");
 			} else {
 				self.print_level(record.level());
 				println!(" {}", record.args());
@@ -104,6 +109,13 @@ pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<
 
 	let logger: RunhLogger<File> = RunhLogger {
 		log_file: Mutex::new(log_file),
+		log_file_internal: Mutex::new(
+			OpenOptions::new()
+				.create(true)
+				.write(true)
+				.open("/tmp/runh/log.json")
+				.expect("Could not open tmp log file!"),
+		),
 		log_format,
 	};
 
