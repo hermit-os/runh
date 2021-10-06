@@ -113,7 +113,7 @@ pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<
 			OpenOptions::new()
 				.create(true)
 				.write(true)
-				.open("/tmp/runh/log.json")
+				.open(format!("/tmp/runh/log-{}.json", chrono::offset::Local::now()))
 				.expect("Could not open tmp log file!"),
 		),
 		log_format,
