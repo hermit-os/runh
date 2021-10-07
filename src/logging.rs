@@ -24,7 +24,7 @@ pub struct LogEntry {
 
 struct RunhLogger<W: Write + Send + 'static> {
 	log_file: Mutex<Option<W>>,
-	log_file_internal: Mutex<W>,
+	log_file_internal: Mutex<Option<W>>,
 	log_format: LogFormat,
 }
 
@@ -54,8 +54,10 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 					println!(" {}", record.args());
 				}
 				let mut file_lock_backup = self.log_file_internal.lock().unwrap();
-				let file_backup = &mut *file_lock_backup;
-				writeln!(file_backup, "{}", message).expect("Could not write to backup log file!");
+				if let Some(file_backup) = &mut *file_lock_backup {
+					writeln!(file_backup, "{}", message)
+						.expect("Could not write to backup log file!");
+				}
 			} else {
 				self.print_level(record.level());
 				println!(" {}", record.args());
@@ -92,11 +94,13 @@ impl<W: Write + Send + 'static> RunhLogger<W> {
 }
 
 pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<&str>) {
+	let mut has_log_pipe = false;
 	let log_file = log_path
 		.map(|path| std::fs::File::create(path).expect("Could not create new log file!"))
 		.or_else(|| {
 			if let Ok(log_fd) = std::env::var("RUNH_LOG_PIPE") {
 				let pipe_fd: i32 = log_fd.parse().expect("RUNH_LOG_PIPE was not an integer!");
+				has_log_pipe = true;
 				unsafe { Some(File::from_raw_fd(RawFd::from(pipe_fd))) }
 			} else {
 				None
@@ -109,13 +113,20 @@ pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<
 
 	let logger: RunhLogger<File> = RunhLogger {
 		log_file: Mutex::new(log_file),
-		log_file_internal: Mutex::new(
-			OpenOptions::new()
-				.create(true)
-				.write(true)
-				.open(format!("/tmp/runh/log-{}.json", chrono::offset::Local::now()))
-				.expect("Could not open tmp log file!"),
-		),
+		log_file_internal: Mutex::new(if has_log_pipe {
+			None
+		} else {
+			Some(
+				OpenOptions::new()
+					.create(true)
+					.write(true)
+					.open(format!(
+						"/tmp/runh/log-{}.json",
+						chrono::offset::Local::now().to_rfc3339()
+					))
+					.expect("Could not open tmp log file!"),
+			)
+		}),
 		log_format,
 	};
 
