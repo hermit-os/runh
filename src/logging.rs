@@ -37,31 +37,31 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 	fn log(&self, record: &Record) {
 		let mut file_lock = self.log_file.lock().unwrap();
 		if self.enabled(record.metadata()) {
+			let message = match self.log_format {
+				LogFormat::TEXT => {
+					format!("[{}] {}", record.level(), record.args())
+				}
+				LogFormat::JSON => to_string(&LogEntry {
+					level: record.level().as_str().to_ascii_lowercase(),
+					msg: format!("{}", record.args()),
+					time: Local::now().to_rfc3339(),
+				})
+				.unwrap(),
+			};
 			if let Some(file) = &mut *file_lock {
-				let message = match self.log_format {
-					LogFormat::TEXT => {
-						format!("[{}] {}", record.level(), record.args())
-					}
-					LogFormat::JSON => to_string(&LogEntry {
-						level: record.level().as_str().to_ascii_lowercase(),
-						msg: format!("{}", record.args()),
-						time: Local::now().to_rfc3339(),
-					})
-					.unwrap(),
-				};
 				if let Err(err) = writeln!(file, "{}", message) {
 					println!("ERROR in logger: {} Writing to stdout instead!", err);
 					self.print_level(record.level());
 					println!(" {}", record.args());
 				}
-				let mut file_lock_backup = self.log_file_internal.lock().unwrap();
-				if let Some(file_backup) = &mut *file_lock_backup {
-					writeln!(file_backup, "{}", message)
-						.expect("Could not write to backup log file!");
-				}
 			} else {
 				self.print_level(record.level());
 				println!(" {}", record.args());
+			}
+			let mut file_lock_backup = self.log_file_internal.lock().unwrap();
+			if let Some(file_backup) = &mut *file_lock_backup {
+				writeln!(file_backup, "{}", message)
+					.expect("Could not write to backup log file!");
 			}
 		}
 	}
