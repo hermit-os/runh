@@ -60,8 +60,7 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 			}
 			let mut file_lock_backup = self.log_file_internal.lock().unwrap();
 			if let Some(file_backup) = &mut *file_lock_backup {
-				writeln!(file_backup, "{}", message)
-					.expect("Could not write to backup log file!");
+				writeln!(file_backup, "{}", message).expect("Could not write to backup log file!");
 			}
 		}
 	}
