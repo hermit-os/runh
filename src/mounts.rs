@@ -76,7 +76,12 @@ pub fn configure_mounts(
 		let destination_resolved = rootfs::resolve_in_rootfs(mount.destination.as_str(), rootfs);
 
 		if destination_resolved.starts_with(&rootfs) {
-			debug!("Mounting {:?}", destination_resolved);
+			debug!(
+				"Mounting {:?} with type {} and options {:?}",
+				destination_resolved,
+				mount.typ.as_ref().unwrap_or(&"none".to_string()),
+				mount.options.as_ref().unwrap_or(&vec![])
+			);
 
 			let is_bind_mount = mount
 				.options

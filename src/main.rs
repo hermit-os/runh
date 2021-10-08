@@ -96,7 +96,7 @@ fn parse_matches(app: App) {
 }
 pub fn main() {
 	std::panic::set_hook(Box::new(|panic_info| {
-		error!("PANIC:\n {}", panic_info);
+		error!("PANIC: {}", panic_info);
 	}));
 
 	let app = App::new("runh")
