@@ -32,39 +32,49 @@ use crate::pull::*;
 use crate::spec::*;
 use crate::start::*;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
-use std::str::FromStr;
+use std::fs::DirBuilder;
+use std::os::unix::fs::DirBuilderExt;
 use std::{env, path::PathBuf};
-
-pub fn get_project_dir() -> PathBuf {
-	//let dir = directories::ProjectDirs::from("org", "hermitcore", "runh").expect("Unable to determine container directory");
-	//PathBuf::from(dir.project_path().clone())
-	PathBuf::from_str("/tmp/runh").unwrap().clone()
-}
 
 fn parse_matches(app: App) {
 	let matches = app.get_matches();
 
+	let project_dir = PathBuf::from(matches.value_of("ROOT").unwrap());
+
+	if !project_dir.exists() {
+		DirBuilder::new()
+			.recursive(true)
+			.mode(0o755)
+			.create(&project_dir)
+			.expect(format!("Could not create root directory at {:?}", &project_dir).as_str());
+	}
+
 	// initialize logger
 	logging::init(
+		project_dir.clone(),
 		matches.value_of("LOG_PATH"),
 		matches.value_of("LOG_FORMAT"),
 		matches.value_of("LOG_LEVEL"),
 	);
 	info!("Welcome to runh {}", crate_version!());
-	debug!("Runh was started with command {}", env::args().collect::<Vec<String>>().join(" "));
+	debug!(
+		"Runh was started with command {}",
+		env::args().collect::<Vec<String>>().join(" ")
+	);
 
 	match matches.subcommand() {
 		("spec", Some(sub_m)) => create_spec(sub_m.value_of("BUNDLE")),
 		("create", Some(sub_m)) => create_container(
+			project_dir,
 			sub_m.value_of("CONTAINER_ID"),
 			sub_m.value_of("BUNDLE"),
 			sub_m.value_of("PID_FILE"),
 			sub_m.value_of("CONSOLE_SOCKET"),
 		),
-		("delete", Some(sub_m)) => delete_container(sub_m.value_of("CONTAINER_ID")),
-		("start", Some(sub_m)) => start_container(sub_m.value_of("CONTAINER_ID")),
+		("delete", Some(sub_m)) => delete_container(project_dir, sub_m.value_of("CONTAINER_ID")),
+		("start", Some(sub_m)) => start_container(project_dir, sub_m.value_of("CONTAINER_ID")),
 		("init", Some(_)) => init_container(),
-		("list", Some(_)) => list_containers(),
+		("list", Some(_)) => list_containers(project_dir),
 		("pull", Some(sub_m)) => {
 			if let Some(str) = sub_m.value_of("IMAGE") {
 				pull_registry(
@@ -98,6 +108,7 @@ pub fn main() {
 			Arg::with_name("ROOT")
 				.long("root")
 				.takes_value(true)
+				.default_value("/run/user/1000/runh")
 				.help("root directory for storage of vm state"),
 		)
 		.arg(

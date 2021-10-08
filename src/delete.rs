@@ -1,16 +1,20 @@
 use crate::container::OCIContainer;
 use std::fs;
 use std::io::Read;
+use std::path::PathBuf;
 
-pub fn delete_container(id: Option<&str>) {
+pub fn delete_container(mut project_dir: PathBuf, id: Option<&str>) {
 	let mut delete_file = false;
-	let mut path = crate::get_project_dir();
-	path.push(id.unwrap());
+	project_dir.push(id.unwrap());
 	// path to the container specification
-	let container_dir = path.clone();
-	path.push("container.json");
+	let container_dir = project_dir.clone();
+	project_dir.push("container.json");
 
-	if let Ok(mut file) = fs::OpenOptions::new().read(true).write(false).open(path) {
+	if let Ok(mut file) = fs::OpenOptions::new()
+		.read(true)
+		.write(false)
+		.open(project_dir)
+	{
 		let mut contents = String::new();
 		file.read_to_string(&mut contents)
 			.expect("Unable to read container specification");
