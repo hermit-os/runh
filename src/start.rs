@@ -1,15 +1,15 @@
 use crate::container::OCIContainer;
 use std::fs::{self, File};
 use std::io::{Read, Write};
+use std::path::PathBuf;
 
-pub fn start_container(id: Option<&str>) {
-	let mut path = crate::get_project_dir();
-	path.push(id.unwrap());
+pub fn start_container(mut project_dir: PathBuf, id: Option<&str>) {
+	project_dir.push(id.unwrap());
 
 	if let Ok(mut file) = fs::OpenOptions::new()
 		.read(true)
 		.write(false)
-		.open(path.join("container.json"))
+		.open(project_dir.join("container.json"))
 	{
 		let mut contents = String::new();
 		file.read_to_string(&mut contents)
@@ -25,7 +25,8 @@ pub fn start_container(id: Option<&str>) {
 			);
 
 			debug!("Open exec fifo to start container!");
-			let mut fifo = File::open(path.join("exec.fifo")).expect("Could not open exec fifo!");
+			let mut fifo =
+				File::open(project_dir.join("exec.fifo")).expect("Could not open exec fifo!");
 			let mut buffer = [1u8];
 			fifo.read_exact(&mut buffer)
 				.expect("Could not read from exec fifo!");

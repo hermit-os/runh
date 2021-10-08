@@ -6,6 +6,7 @@ use std::ffi::CStr;
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::os::unix::fs::MetadataExt;
+use std::path::PathBuf;
 use std::{mem, ptr};
 
 fn get_unix_username(uid: u32) -> Option<String> {
@@ -35,15 +36,14 @@ fn get_unix_username(uid: u32) -> Option<String> {
 	}
 }
 
-pub fn list_containers() {
+pub fn list_containers(project_dir: PathBuf) {
 	println!(
 		"{0: <12} {1: <12} {2: <12} {3: <12} {4: <12} {5: <12}",
 		"ID", "PID", "STATUS", "BUNDLE", "CREATED", "OWNER"
 	);
 
-	let path = crate::get_project_dir();
-	if path.is_dir() {
-		for entry in std::fs::read_dir(path).unwrap() {
+	if project_dir.is_dir() {
+		for entry in std::fs::read_dir(project_dir).unwrap() {
 			let dir = entry.unwrap();
 			let mut fname = dir.path().clone();
 			fname.push("container.json");

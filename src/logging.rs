@@ -8,6 +8,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::prelude::FromRawFd;
 use std::os::unix::prelude::RawFd;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 enum LogFormat {
@@ -93,7 +94,12 @@ impl<W: Write + Send + 'static> RunhLogger<W> {
 	}
 }
 
-pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<&str>) {
+pub fn init(
+	project_dir: PathBuf,
+	log_path: Option<&str>,
+	log_format: Option<&str>,
+	log_level: Option<&str>,
+) {
 	let mut has_log_pipe = false;
 	let log_file = log_path
 		.map(|path| std::fs::File::create(path).expect("Could not create new log file!"))
@@ -120,10 +126,10 @@ pub fn init(log_path: Option<&str>, log_format: Option<&str>, log_level: Option<
 				OpenOptions::new()
 					.create(true)
 					.write(true)
-					.open(format!(
-						"/tmp/runh/log-{}.json",
-						chrono::offset::Local::now().to_rfc3339()
-					))
+					.open(project_dir.join(format!(
+						"log-{}.json",
+						Local::now().to_rfc3339().to_string()
+					)))
 					.expect("Could not open tmp log file!"),
 			)
 		}),

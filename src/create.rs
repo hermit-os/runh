@@ -21,12 +21,13 @@ use std::str::FromStr;
 use crate::container::OCIContainer;
 
 pub fn create_container(
+	project_dir: PathBuf,
 	id: Option<&str>,
 	bundle: Option<&str>,
 	pidfile: Option<&str>,
 	console_socket: Option<&str>,
 ) {
-	let mut path = crate::get_project_dir();
+	let mut path = project_dir.clone();
 
 	let _ = std::fs::create_dir(path.clone());
 
@@ -160,7 +161,7 @@ pub fn create_container(
 
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
-		.arg("debug")
+		.arg("debug") //TODO: Start child process with the same log level the parent was called with
 		.arg("--log-format")
 		.arg("json")
 		.arg("init")
