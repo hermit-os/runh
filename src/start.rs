@@ -1,6 +1,6 @@
 use crate::container::OCIContainer;
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::PathBuf;
 
 pub fn start_container(mut project_dir: PathBuf, id: Option<&str>) {
