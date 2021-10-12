@@ -6,21 +6,75 @@ use std::{
 
 use nix::mount::{MntFlags, MsFlags};
 use oci_spec::runtime::Spec;
+use path_clean::PathClean;
 
+// This function should be equivalent to cyphar/filepath-securejoin/SecureJoinVFS
 pub fn resolve_in_rootfs(destination_rel: &str, rootfs: &PathBuf) -> PathBuf {
-	let destination = rootfs.join(destination_rel.trim_start_matches("/"));
+	let mut unsafe_path = PathBuf::from(destination_rel);
 	let mut destination_resolved = PathBuf::new();
+	let mut n = 0;
 
-	// Verfify destination path lies within rootfs folder (no symlinks out of it)
-	for subpath in destination.iter() {
-		destination_resolved.push(subpath);
-		if destination_resolved.exists() {
-			destination_resolved = destination_resolved.canonicalize().expect(
-				format!("Could not resolve mount path at {:?}", destination_resolved).as_str(),
+	while let Some(subpath) = unsafe_path.clone().iter().next() {
+		if n > 255 {
+			panic!(
+				"Could not resolve mount path at {:?}! Too many symlinks!",
+				destination_rel
 			);
 		}
+
+		unsafe_path = unsafe_path.strip_prefix(subpath).unwrap().to_path_buf();
+
+		let clean_subpath = PathBuf::from("/")
+			.join(&destination_resolved)
+			.join(subpath)
+			.clean();
+		if clean_subpath == PathBuf::from("/") {
+			destination_resolved.clear();
+			continue;
+		}
+
+		let full_path = rootfs.join(clean_subpath).clean();
+		if !full_path.exists() {
+			destination_resolved.push(subpath);
+			continue;
+		}
+
+		let metadata = full_path.symlink_metadata().expect(
+			format!(
+				"Could not get metadata for mount path component at {:?}!",
+				full_path
+			)
+			.as_str(),
+		);
+		if !metadata.file_type().is_symlink() {
+			destination_resolved.push(subpath);
+			continue;
+		}
+
+		n = n + 1;
+
+		let link = destination_resolved.read_link().expect(
+			format!(
+				"Could not read symlink for mount path component at {:?}!",
+				full_path
+			)
+			.as_str(),
+		);
+
+		if link.is_absolute() {
+			destination_resolved.clear();
+		}
+		unsafe_path = link.join(unsafe_path);
 	}
-	destination_resolved
+	rootfs
+		.join(
+			PathBuf::from("/")
+				.join(destination_resolved)
+				.clean()
+				.strip_prefix("/")
+				.unwrap(),
+		)
+		.clean()
 }
 
 pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
