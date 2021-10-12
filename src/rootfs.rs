@@ -33,7 +33,9 @@ pub fn resolve_in_rootfs(destination_rel: &str, rootfs: &PathBuf) -> PathBuf {
 			continue;
 		}
 
-		let full_path = rootfs.join(clean_subpath).clean();
+		let full_path = rootfs
+			.join(clean_subpath.strip_prefix("/").unwrap())
+			.clean();
 		if !full_path.exists() {
 			destination_resolved.push(subpath);
 			continue;
@@ -53,7 +55,7 @@ pub fn resolve_in_rootfs(destination_rel: &str, rootfs: &PathBuf) -> PathBuf {
 
 		n = n + 1;
 
-		let link = destination_resolved.read_link().expect(
+		let link = full_path.read_link().expect(
 			format!(
 				"Could not read symlink for mount path component at {:?}!",
 				full_path
