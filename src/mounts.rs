@@ -211,15 +211,16 @@ pub fn configure_mounts(
 					Some("cgroup") => {
 						//TODO: Additional checks for cGroup v1 vs v2,
 						//		mount might fail when the cgroup-NS was not unshared earlier
-						create_all_dirs(&destination_resolved);
-						mount_with_flags(
-							"cgroup2",
-							&mount_src,
-							&mount_dest,
-							&destination_resolved,
-							mount_options.clone(),
-							mount_label.as_ref(),
-						);
+						// create_all_dirs(&destination_resolved);
+						// mount_with_flags(
+						// 	"cgroup2",
+						// 	&mount_src,
+						// 	&mount_dest,
+						// 	&destination_resolved,
+						// 	mount_options.clone(),
+						// 	mount_label.as_ref(),
+						// );
+						warn!("Warning: cgroups are currently unimplemented!");
 					}
 					_ => {
 						if destination_resolved.starts_with(&rootfs.join("proc")) {
