@@ -52,7 +52,6 @@ pub fn create_container(
 	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 		.unwrap();
 
-
 	// write container to root dir
 	let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap()));
 	let mut file = OpenOptions::new()

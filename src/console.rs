@@ -1,8 +1,4 @@
-use std::{
-	fs::{File, OpenOptions},
-	os::unix::prelude::{AsRawFd, OpenOptionsExt},
-	path::PathBuf,
-};
+use std::{fs::File, os::unix::prelude::AsRawFd, path::PathBuf};
 
 use nix::{
 	fcntl::OFlag,
