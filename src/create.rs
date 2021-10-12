@@ -52,6 +52,18 @@ pub fn create_container(
 	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 		.unwrap();
 
+
+	// write container to root dir
+	let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap());
+	let mut file = OpenOptions::new()
+		.read(true)
+		.write(true)
+		.create_new(true)
+		.open(&spec_path_backup)
+		.expect("Unable to write spec to backup file!");
+	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
+		.unwrap();
+
 	debug!(
 		"Create container with uid {}, gid {}",
 		container.spec().process.as_ref().unwrap().user.uid,
