@@ -54,7 +54,7 @@ pub fn create_container(
 
 
 	// write container to root dir
-	let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap());
+	let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap()));
 	let mut file = OpenOptions::new()
 		.read(true)
 		.write(true)
