@@ -30,9 +30,11 @@ pub fn start_container(mut project_dir: PathBuf, id: Option<&str>) {
 			let mut buffer = [1u8];
 			fifo.read_exact(&mut buffer)
 				.expect("Could not read from exec fifo!");
+			drop(fifo);
 
 			if buffer[0] == 0 {
-				info!("Container started successfully!");
+				info!("Container started successfully! Deleting exec fifo!");
+				std::fs::remove_file(project_dir.join("exec.fifo")).expect("Could not delete exec fifo!");
 			} else {
 				panic!(
 					"Invalid value read from fifo. Read byte was {:x}",

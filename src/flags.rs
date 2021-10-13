@@ -4,7 +4,9 @@ use oci_spec::runtime;
 pub fn generate_cloneflags(namespaces: &Vec<runtime::LinuxNamespace>) -> CloneFlags {
 	let mut result = CloneFlags::empty();
 	for ns in namespaces {
-		result.insert(get_cloneflag(ns.typ));
+		if ns.path.is_none() {
+			result.insert(get_cloneflag(ns.typ));
+		}
 	}
 	return result;
 }
