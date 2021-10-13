@@ -9,6 +9,7 @@ use oci_spec::runtime;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::os::unix::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
@@ -51,6 +52,10 @@ pub fn create_container(
 		.expect("Unable to create container");
 	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 		.unwrap();
+
+	// link container bundle
+	fs::symlink(PathBuf::from(bundle.unwrap()), &path.join("bundle"))
+		.expect("Unable to symlink bundle into project dir!");
 
 	// write container to root dir
 	let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap()));
@@ -253,10 +258,19 @@ pub fn create_container(
 		);
 	}
 
+	let state_location = path.join("created");
+	let mut state_file = OpenOptions::new()
+		.read(true)
+		.write(true)
+		.create(true)
+		.open(state_location)
+		.expect("Could not create state-file in container dir!");
+	write!(state_file, "{}", pid).expect("Could not write pid to state-file!");
+
 	debug!("Running prestart hooks...");
 	if let Some(hooks) = container.spec().hooks.as_ref() {
 		let state = runtime::State {
-			version: String::from("1.0.2"),
+			version: String::from(crate::consts::OCI_STATE_VERSION),
 			id: container.id().clone(),
 			status: String::from("created"),
 			pid: Some(pid),

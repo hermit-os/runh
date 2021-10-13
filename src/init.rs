@@ -543,6 +543,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				.expect("Could not open exec fifo!");
 
 			write!(exec_fifo, "\0").expect("Could not write to exec fifo!");
+			drop(exec_fifo);
 
 			let mut cmd = std::process::Command::new(exec_path_abs);
 			cmd.arg0(exec_args.get(0).unwrap());

@@ -22,6 +22,7 @@ mod pull;
 mod rootfs;
 mod spec;
 mod start;
+mod state;
 
 use crate::create::*;
 use crate::delete::*;
@@ -31,6 +32,7 @@ use crate::list::*;
 use crate::pull::*;
 use crate::spec::*;
 use crate::start::*;
+use crate::state::*;
 use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
 use std::fs::DirBuilder;
 use std::os::unix::fs::DirBuilderExt;
@@ -48,6 +50,21 @@ fn parse_matches(app: App) {
 			.create(&project_dir)
 			.expect(format!("Could not create root directory at {:?}", &project_dir).as_str());
 	}
+
+	if let ("state", Some(sub_m)) = matches.subcommand() {
+		logging::init(
+			project_dir.clone(),
+			matches.value_of("LOG_PATH"),
+			matches.value_of("LOG_FORMAT"),
+			if matches.value_of("LOG_PATH").is_none() {
+				Some("error") //Suppress all output when only logging to stdout as we only want to print the state json.
+			} else {
+				matches.value_of("LOG_LEVEL")
+			}
+		);
+		produce_container_state(project_dir, sub_m.value_of("CONTAINER_ID").unwrap());
+		return;
+	};
 
 	// initialize logger
 	logging::init(
@@ -150,6 +167,17 @@ pub fn main() {
 						.takes_value(true)
 						.help("path to the root of the bundle directory"),
 				),
+		)
+		.subcommand(
+				SubCommand::with_name("state")
+				.about("Query container state")
+				.version(crate_version!())
+				.arg(
+					Arg::with_name("CONTAINER_ID")
+						.takes_value(true)
+						.required(true)
+						.help("Id of the container"),
+				)
 		)
 		.subcommand(
 			SubCommand::with_name("create")
