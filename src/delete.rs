@@ -42,4 +42,7 @@ pub fn delete_container(mut project_dir: PathBuf, id: Option<&str>, force: bool)
 		// delete all temporary files
 		fs::remove_dir_all(container_dir).expect("Unable to delete container");
 	}
+
+	//Additionally to deleting all the files, we should also delete all remaining processes spawned by the container init process.
+	//However, without cgroup support there is currently no real way to do this as we do not know when (and how) the init process will be killed
 }
