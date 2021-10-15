@@ -6,6 +6,7 @@ extern crate log;
 mod container;
 mod create;
 mod delete;
+mod kill;
 //mod exec;
 mod console;
 mod consts;
@@ -28,6 +29,7 @@ use crate::create::*;
 use crate::delete::*;
 //use crate::exec::*;
 use crate::init::*;
+use crate::kill::*;
 use crate::list::*;
 use crate::pull::*;
 use crate::spec::*;
@@ -60,9 +62,9 @@ fn parse_matches(app: App) {
 				Some("error") //Suppress all output when only logging to stdout as we only want to print the state json.
 			} else {
 				matches.value_of("LOG_LEVEL")
-			}
+			},
 		);
-		produce_container_state(project_dir, sub_m.value_of("CONTAINER_ID").unwrap());
+		print_container_state(project_dir, sub_m.value_of("CONTAINER_ID").unwrap());
 		return;
 	};
 
@@ -88,7 +90,17 @@ fn parse_matches(app: App) {
 			sub_m.value_of("PID_FILE"),
 			sub_m.value_of("CONSOLE_SOCKET"),
 		),
-		("delete", Some(sub_m)) => delete_container(project_dir, sub_m.value_of("CONTAINER_ID")),
+		("delete", Some(sub_m)) => delete_container(
+			project_dir,
+			sub_m.value_of("CONTAINER_ID"),
+			sub_m.is_present("FORCE"),
+		),
+		("kill", Some(sub_m)) => kill_container(
+			project_dir,
+			sub_m.value_of("CONTAINER_ID"),
+			sub_m.value_of("SIGNAL"),
+			sub_m.is_present("ALL"),
+		),
 		("start", Some(sub_m)) => start_container(project_dir, sub_m.value_of("CONTAINER_ID")),
 		("init", Some(_)) => init_container(),
 		("list", Some(_)) => list_containers(project_dir),
@@ -251,8 +263,34 @@ pub fn main() {
 						.short("f")
 						.takes_value(false)
 						.required(false)
-						.help("Currently unimplemented!"),
+						.help("Delete the container, even if it is still running"),
 				),
+		)
+		.subcommand(
+			SubCommand::with_name("kill")
+			.about("Send a signal to a running or created container")
+			.version(crate_version!())
+			.arg(
+				Arg::with_name("CONTAINER_ID")
+					.takes_value(true)
+					.required(true)
+					.help("Id of the container"),
+			)
+			.arg(
+				Arg::with_name("SIGNAL")
+					.takes_value(true)
+					.required(false)
+					.default_value("SIGTERM")
+					.help("Signal to be sent to the init process"),
+			)
+			.arg(
+				Arg::with_name("ALL")
+					.long("all")
+					.short("a")
+					.takes_value(false)
+					.required(false)
+					.help("Send the signal to all container processes"),
+			),
 		)
 		.subcommand(
 			SubCommand::with_name("list")
