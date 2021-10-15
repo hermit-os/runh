@@ -4,7 +4,7 @@ use oci_spec::runtime;
 
 use crate::{consts, container::OCIContainer};
 
-pub fn produce_container_state(project_dir: PathBuf, id: &str) {
+pub fn get_container_state(project_dir: PathBuf, id: &str) -> runtime::State {
 	let container_dir = project_dir.join(id);
 	if !container_dir.is_dir() {
 		panic!(
@@ -44,27 +44,29 @@ pub fn produce_container_state(project_dir: PathBuf, id: &str) {
 	let container: OCIContainer = serde_json::from_reader(BufReader::new(container_file))
 		.expect("Could not query state. Container file could not be parsed!");
 
-	let state = runtime::State {
+	runtime::State {
 		version: String::from(consts::OCI_STATE_VERSION),
 		id: id.to_string(),
 		status: String::from(if let Some(pid_int) = pid {
-			let process = procfs::process::Process::new(pid_int)
-				.expect("Could not query state. Process given by PID could not be read!");
-			let process_state = process
-				.stat()
-				.expect("Could not query state. Process stat could not be read!")
-				.state()
-				.expect("Could not query state. Process state could not be read!");
-			match process_state {
-				procfs::process::ProcState::Zombie => "stopped",
-				procfs::process::ProcState::Dead => "stopped",
-				_ => {
-					if exec_fifo.exists() {
-						"created"
-					} else {
-						"running"
+			if let Ok(process) = procfs::process::Process::new(pid_int) {
+				let process_state = process
+					.stat()
+					.expect("Could not query state. Process stat could not be read!")
+					.state()
+					.expect("Could not query state. Process state could not be read!");
+				match process_state {
+					procfs::process::ProcState::Zombie => "stopped",
+					procfs::process::ProcState::Dead => "stopped",
+					_ => {
+						if exec_fifo.exists() {
+							"created"
+						} else {
+							"running"
+						}
 					}
 				}
+			} else {
+				"stopped"
 			}
 		} else {
 			"creating"
@@ -72,11 +74,13 @@ pub fn produce_container_state(project_dir: PathBuf, id: &str) {
 		pid,
 		bundle,
 		annotations: container.spec().annotations.clone(),
-	};
+	}
+}
 
+pub fn print_container_state(project_dir: PathBuf, id: &str) {
 	println!(
 		"{}",
-		state
+		get_container_state(project_dir, id)
 			.to_string()
 			.expect("Could not query state. State could not be serialized!")
 	);
