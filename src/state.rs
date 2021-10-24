@@ -1,10 +1,21 @@
-use std::{fs::OpenOptions, io::BufReader, path::PathBuf};
-
-use oci_spec::runtime;
-
 use crate::{consts, container::OCIContainer};
+use serde::*;
+use std::{collections::HashMap, fs::OpenOptions, io::BufReader, path::PathBuf};
 
-pub fn get_container_state(project_dir: PathBuf, id: &str) -> runtime::State {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct State {
+	#[serde(rename = "ociVersion")]
+	pub version: String,
+	pub id: String,
+	pub status: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub pid: Option<i32>,
+	pub bundle: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub annotations: Option<HashMap<String, String>>,
+}
+
+pub fn get_container_state(project_dir: PathBuf, id: &str) -> State {
 	let container_dir = project_dir.join(id);
 	if !container_dir.is_dir() {
 		panic!(
@@ -44,7 +55,7 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> runtime::State {
 	let container: OCIContainer = serde_json::from_reader(BufReader::new(container_file))
 		.expect("Could not query state. Container file could not be parsed!");
 
-	runtime::State {
+	State {
 		version: String::from(consts::OCI_STATE_VERSION),
 		id: id.to_string(),
 		status: String::from(if let Some(pid_int) = pid {
@@ -73,15 +84,14 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> runtime::State {
 		}),
 		pid,
 		bundle,
-		annotations: container.spec().annotations.clone(),
+		annotations: container.spec().annotations().clone(),
 	}
 }
 
 pub fn print_container_state(project_dir: PathBuf, id: &str) {
 	println!(
 		"{}",
-		get_container_state(project_dir, id)
-			.to_string()
+		serde_json::to_string(&get_container_state(project_dir, id))
 			.expect("Could not query state. State could not be serialized!")
 	);
 }
