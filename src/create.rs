@@ -1,3 +1,4 @@
+use crate::state;
 use command_fds::{CommandFdExt, FdMapping};
 use nix::fcntl::OFlag;
 use nix::sys::socket;
@@ -5,7 +6,6 @@ use nix::sys::socket::SockFlag;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
-use oci_spec::runtime;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
@@ -70,8 +70,8 @@ pub fn create_container(
 
 	debug!(
 		"Create container with uid {}, gid {}",
-		container.spec().process.as_ref().unwrap().user.uid,
-		container.spec().process.as_ref().unwrap().user.gid
+		container.spec().process().as_ref().unwrap().user().uid(),
+		container.spec().process().as_ref().unwrap().user().gid()
 	);
 
 	//Setup exec fifo
@@ -207,7 +207,7 @@ pub fn create_container(
 		.expect("Could not read from init pipe!");
 	debug!("Read from init pipe: {}", buffer[0]);
 
-	let rootfs_path = PathBuf::from(&container.spec().root.as_ref().unwrap().path);
+	let rootfs_path = PathBuf::from(&container.spec().root().as_ref().unwrap().path());
 	let rootfs_path_abs = if rootfs_path.is_absolute() {
 		rootfs_path
 	} else {
@@ -268,20 +268,20 @@ pub fn create_container(
 	write!(state_file, "{}", pid).expect("Could not write pid to state-file!");
 
 	debug!("Running prestart hooks...");
-	if let Some(hooks) = container.spec().hooks.as_ref() {
-		let state = runtime::State {
+	if let Some(hooks) = container.spec().hooks().as_ref() {
+		let state = state::State {
 			version: String::from(crate::consts::OCI_STATE_VERSION),
 			id: container.id().clone(),
 			status: String::from("created"),
 			pid: Some(pid),
 			bundle: container.bundle().clone(),
-			annotations: container.spec().annotations.clone(),
+			annotations: container.spec().annotations().clone(),
 		};
 
-		if let Some(prestart_hooks) = hooks.prestart.as_ref() {
+		if let Some(prestart_hooks) = hooks.prestart().as_ref() {
 			for hook in prestart_hooks {
-				let mut cmd = std::process::Command::new(&hook.path);
-				if let Some(args) = &hook.args {
+				let mut cmd = std::process::Command::new(&hook.path());
+				if let Some(args) = &hook.args() {
 					if !args.is_empty() {
 						cmd.arg0(&args[0]);
 					}
@@ -289,7 +289,7 @@ pub fn create_container(
 						cmd.args(&args[1..]);
 					}
 				}
-				if let Some(env) = &hook.env {
+				if let Some(env) = &hook.env() {
 					for var in env {
 						let (name, value) = var.split_once("=").expect(
 							format!("Could not parse environment variable: {}", var).as_str(),
@@ -297,30 +297,26 @@ pub fn create_container(
 						cmd.env(name, value);
 					}
 				}
-				if let Some(timeout) = hook.timeout {
-					if timeout <= 0 {
-						error!("prestart hook {} has a timeout <= 0!", hook.path);
-					} else {
-						warn!("The timeout set for prestart hook {} is currently unimplemented and will be ignored!", hook.path);
-					}
+				if hook.timeout().is_some() {
+					warn!("The timeout set for prestart hook {:?} is currently unimplemented and will be ignored!", hook.path());
 				}
 				cmd.stderr(std::process::Stdio::piped());
 				cmd.stdin(std::process::Stdio::piped());
 				let mut child = cmd.spawn().expect(
-					format!("Unable to spawn prestart hook process {}", hook.path).as_str(),
+					format!("Unable to spawn prestart hook process {:?}", hook.path()).as_str(),
 				);
 				write!(
 					child.stdin.take().unwrap(),
 					"{}",
-					state.to_string().unwrap()
+					serde_json::to_string(&state).unwrap()
 				)
 				.expect("Could not write container state to hook process stdin!");
 
 				let ret = child.wait_with_output().unwrap();
 				if !ret.status.success() {
 					panic!(
-						"prestart hook {} returned exit status {}. Stderr: {}",
-						hook.path,
+						"prestart hook {:?} returned exit status {}. Stderr: {}",
+						hook.path(),
 						ret.status,
 						String::from_utf8(ret.stderr).unwrap()
 					);

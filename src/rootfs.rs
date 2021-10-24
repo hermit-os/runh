@@ -9,8 +9,8 @@ use oci_spec::runtime::Spec;
 use path_clean::PathClean;
 
 // This function should be equivalent to cyphar/filepath-securejoin/SecureJoinVFS
-pub fn resolve_in_rootfs(destination_rel: &str, rootfs: &PathBuf) -> PathBuf {
-	let mut unsafe_path = PathBuf::from(destination_rel);
+pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf {
+	let mut unsafe_path = destination_rel.clone();
 	let mut destination_resolved = PathBuf::new();
 	let mut n = 0;
 
@@ -84,10 +84,10 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 	mount_flags.insert(MsFlags::MS_REC);
 	mount_flags.insert(
 		match spec
-			.linux
+			.linux()
 			.as_ref()
 			.unwrap()
-			.rootfs_propagation
+			.rootfs_propagation()
 			.as_ref()
 			.and_then(|x| Some(x.as_str()))
 		{
@@ -98,10 +98,10 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 			Some(_) => panic!(
 				"Value of rootfsPropagation did not match any known option! Given value: {}",
 				&spec
-					.linux
+					.linux()
 					.as_ref()
 					.unwrap()
-					.rootfs_propagation
+					.rootfs_propagation()
 					.as_ref()
 					.unwrap()
 			),

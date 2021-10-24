@@ -20,8 +20,8 @@ pub fn start_container(mut project_dir: PathBuf, id: Option<&str>) {
 			debug!("Bundle at {}", container.bundle());
 			debug!(
 				"Start container with uid {}, gid {}",
-				container.spec().process.as_ref().unwrap().user.uid,
-				container.spec().process.as_ref().unwrap().user.gid
+				container.spec().process().as_ref().unwrap().user().uid(),
+				container.spec().process().as_ref().unwrap().user().gid()
 			);
 
 			debug!("Open exec fifo to start container!");

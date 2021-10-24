@@ -80,9 +80,9 @@ pub fn init_container() {
 		.expect("No init pipe given!")
 		.parse()
 		.expect("RUNH_INITPIPE was not an integer!");
-	
+
 	//TODO: Ensure we are in a cloned binary (prevent CVE-2019-5736)
-	
+
 	let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(pipe_fd)) };
 	write!(init_pipe, "\0").expect("Unable to write to init-pipe!");
 
@@ -109,10 +109,10 @@ pub fn init_container() {
 	let spec_file = unsafe { File::from_raw_fd(RawFd::from(spec_fd)) };
 	let spec: Spec = serde_json::from_reader(&spec_file).expect("Unable to read spec file!");
 
-	let linux_spec = spec.linux.as_ref().unwrap();
+	let linux_spec = spec.linux().as_ref().unwrap();
 
 	debug!("generate clone-flags");
-	let cloneflags = if let Some(namespaces) = &linux_spec.namespaces {
+	let cloneflags = if let Some(namespaces) = &linux_spec.namespaces() {
 		flags::generate_cloneflags(namespaces)
 	} else {
 		CloneFlags::empty()
@@ -181,7 +181,7 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 }
 
 fn init_stage(args: SetupArgs) -> isize {
-	let linux_spec = args.config.spec.linux.as_ref().unwrap();
+	let linux_spec = args.config.spec.linux().as_ref().unwrap();
 	match args.stage {
 		InitStage::PARENT => {
 			debug!("enter init_stage parent");
@@ -224,7 +224,7 @@ fn init_stage(args: SetupArgs) -> isize {
 		InitStage::CHILD => {
 			debug!("enter init_stage child");
 			let _ = prctl::set_name("runh:CHILD");
-			if let Some(namespaces) = &linux_spec.namespaces {
+			if let Some(namespaces) = &linux_spec.namespaces() {
 				namespaces::join_namespaces(namespaces)
 			}
 
@@ -309,10 +309,10 @@ fn init_stage(args: SetupArgs) -> isize {
 			if args
 				.config
 				.spec
-				.process
+				.process()
 				.as_ref()
 				.unwrap()
-				.terminal
+				.terminal()
 				.unwrap_or(false)
 			{
 				console_fd = env::var("RUNH_CONSOLE")
@@ -326,8 +326,8 @@ fn init_stage(args: SetupArgs) -> isize {
 			}
 
 			// Set environment variables found in the config
-			if let Some(process) = &args.config.spec.process {
-				if let Some(env) = &process.env {
+			if let Some(process) = &args.config.spec.process() {
+				if let Some(env) = &process.env() {
 					debug!("load environment variables from config");
 					for var in env {
 						let (name, value) = var.split_once("=").expect(
@@ -345,16 +345,18 @@ fn init_stage(args: SetupArgs) -> isize {
 				for ns in args
 					.config
 					.spec
-					.linux
+					.linux()
 					.as_ref()
 					.unwrap()
-					.namespaces
+					.namespaces()
 					.as_ref()
 					.unwrap()
 				{
-					match ns.typ {
-						runtime::LinuxNamespaceType::network => {
-							if ns.path.is_none() || ns.path.as_ref().unwrap().is_empty() {
+					match ns.typ() {
+						runtime::LinuxNamespaceType::Network => {
+							if ns.path().is_none()
+								|| ns.path().as_ref().unwrap().as_os_str().is_empty()
+							{
 								setup_network = true;
 							}
 						}
@@ -370,18 +372,18 @@ fn init_stage(args: SetupArgs) -> isize {
 			let rootfs_path = PathBuf::from(args.config.rootfs);
 			rootfs::mount_rootfs(&args.config.spec, &rootfs_path);
 
-			let setup_dev = if let Some(mounts) = args.config.spec.mounts {
+			let setup_dev = if let Some(mounts) = args.config.spec.mounts() {
 				mounts::configure_mounts(
 					&mounts,
 					&rootfs_path,
-					&args.config.spec.linux.as_ref().unwrap().mount_label,
+					&args.config.spec.linux().as_ref().unwrap().mount_label(),
 				)
 			} else {
 				true
 			};
 
 			if setup_dev {
-				devices::create_devices(&linux_spec.devices, &rootfs_path);
+				devices::create_devices(&linux_spec.devices(), &rootfs_path);
 				devices::setup_ptmx(&rootfs_path);
 				devices::setup_dev_symlinks(&rootfs_path);
 			}
@@ -424,8 +426,8 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//TODO: re-open /dev/null in the container if any std-fd points to it
 
-			let cwd = &args.config.spec.process.as_ref().unwrap().cwd;
-			if !cwd.is_empty() {
+			let cwd = args.config.spec.process().as_ref().unwrap().cwd();
+			if !cwd.as_os_str().is_empty() {
 				mounts::create_all_dirs(&PathBuf::from(cwd));
 			}
 
@@ -433,10 +435,10 @@ fn init_stage(args: SetupArgs) -> isize {
 			if args
 				.config
 				.spec
-				.process
+				.process()
 				.as_ref()
 				.unwrap()
-				.terminal
+				.terminal()
 				.unwrap_or(false)
 			{
 				let console_socket = unsafe { File::from_raw_fd(RawFd::from(console_fd)) };
@@ -444,15 +446,15 @@ fn init_stage(args: SetupArgs) -> isize {
 				let win_size = args
 					.config
 					.spec
-					.process
+					.process()
 					.as_ref()
 					.unwrap()
-					.console_size
+					.console_size()
 					.as_ref()
 					.and_then(|b| {
 						Some(nix::pty::Winsize {
-							ws_row: b.height as u16,
-							ws_col: b.width as u16,
+							ws_row: b.height() as u16,
+							ws_col: b.width() as u16,
 							ws_xpixel: 0,
 							ws_ypixel: 0,
 						})
@@ -465,22 +467,22 @@ fn init_stage(args: SetupArgs) -> isize {
 			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNS) {
 				//TODO: Remount /dev as ro if requested
 
-				if let Some(root) = args.config.spec.root {
-					if root.readonly.unwrap_or(false) {
+				if let Some(root) = args.config.spec.root() {
+					if root.readonly().unwrap_or(false) {
 						rootfs::set_rootfs_read_only();
 					}
 				}
 				let _ = nix::sys::stat::umask(nix::sys::stat::Mode::from_bits(0o022).unwrap());
 			}
 
-			if let Some(hostname) = args.config.spec.hostname {
+			if let Some(hostname) = args.config.spec.hostname() {
 				debug!("set hostname to {}", &hostname);
 				nix::unistd::sethostname(hostname).expect("Could not set hostname!");
 			}
 
 			//TODO: Apply apparmor profile
 			//TODO: Write sysctl keys
-			if let Some(sysctl) = args.config.spec.linux.as_ref().unwrap().sysctl.as_ref() {
+			if let Some(sysctl) = args.config.spec.linux().as_ref().unwrap().sysctl().as_ref() {
 				for (key, value) in sysctl {
 					let key_path = key.replace(".", "/");
 					let full_path = PathBuf::from("/proc/sys").join(key_path);
@@ -505,14 +507,22 @@ fn init_stage(args: SetupArgs) -> isize {
 			//TODO: Manage readonly and mask paths
 
 			// Set no_new_privileges
-			if let Some(process) = &args.config.spec.process {
-				if process.no_new_privileges.unwrap_or(false) {
+			if let Some(process) = &args.config.spec.process() {
+				if process.no_new_privileges().unwrap_or(false) {
 					debug!("set no_new_privileges");
 					prctl::set_no_new_privs().expect("Could not set no_new_privs flag!");
 				}
 			}
 
-			let exec_args = args.config.spec.process.unwrap().args.unwrap();
+			let exec_args = args
+				.config
+				.spec
+				.process()
+				.as_ref()
+				.unwrap()
+				.args()
+				.as_ref()
+				.unwrap();
 
 			//Verify the args[0] executable exists
 			let exec_path_rel = PathBuf::from(

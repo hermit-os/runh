@@ -59,32 +59,32 @@ pub fn configure_mounts(
 
 	for mount in mounts {
 		//Resolve mount source
-		let mut mount_src = PathBuf::from(&mount.source.as_ref().unwrap());
+		let mut mount_src = PathBuf::from(&mount.source().as_ref().unwrap());
 		if !mount_src.is_absolute() {
 			mount_src = rootfs.join(mount_src);
 		}
 
-		let mount_dest = PathBuf::from(&mount.destination);
-		let mount_device = mount.typ.as_ref().unwrap().as_str();
+		let mount_dest = PathBuf::from(&mount.destination());
+		let mount_device = mount.typ().as_ref().unwrap().as_str();
 
 		let mount_options = mount
-			.options
+			.options()
 			.as_ref()
 			.and_then(|options| Some(parse_mount_options(options)))
 			.unwrap_or_default();
 
-		let destination_resolved = rootfs::resolve_in_rootfs(mount.destination.as_str(), rootfs);
+		let destination_resolved = rootfs::resolve_in_rootfs(mount.destination(), rootfs);
 
 		if destination_resolved.starts_with(&rootfs) {
 			debug!(
 				"Mounting {:?} with type {} and options {:?}",
 				destination_resolved,
-				mount.typ.as_ref().unwrap_or(&"none".to_string()),
-				mount.options.as_ref().unwrap_or(&vec![])
+				mount.typ().as_ref().unwrap_or(&"none".to_string()),
+				mount.options().as_ref().unwrap_or(&vec![])
 			);
 
 			let is_bind_mount = mount
-				.options
+				.options()
 				.as_ref()
 				.and_then(|options| {
 					Some(
@@ -156,7 +156,7 @@ pub fn configure_mounts(
 					//TODO: Relabel source (?)
 				}
 			} else {
-				match mount.typ.as_ref().and_then(|x| Some(x.as_str())) {
+				match mount.typ().as_ref().and_then(|x| Some(x.as_str())) {
 					Some("sysfs") | Some("proc") => {
 						if destination_resolved.is_dir() || !destination_resolved.exists() {
 							create_all_dirs(&destination_resolved);
@@ -244,8 +244,8 @@ pub fn configure_mounts(
 			}
 		} else {
 			panic!(
-				"Mount at {} cannot be mounted into rootfs!",
-				mount.destination
+				"Mount at {:?} cannot be mounted into rootfs!",
+				mount.destination()
 			);
 		}
 	}
