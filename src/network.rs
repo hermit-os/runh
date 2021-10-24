@@ -1,6 +1,7 @@
 use std::process::Stdio;
 
 pub fn setup_network() {
+	//TODO: Replace call to ip binary with library calls
 	let ret = std::process::Command::new("ip")
 		.arg("link")
 		.arg("set")

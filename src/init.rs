@@ -80,6 +80,9 @@ pub fn init_container() {
 		.expect("No init pipe given!")
 		.parse()
 		.expect("RUNH_INITPIPE was not an integer!");
+	
+	//TODO: Ensure we are in a cloned binary (prevent CVE-2019-5736)
+	
 	let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(pipe_fd)) };
 	write!(init_pipe, "\0").expect("Unable to write to init-pipe!");
 
