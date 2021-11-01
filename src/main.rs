@@ -12,6 +12,7 @@ mod console;
 mod consts;
 mod devices;
 mod flags;
+mod hermit;
 mod init;
 mod list;
 mod logging;
