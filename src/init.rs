@@ -9,7 +9,7 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
-use crate::{console, devices, mounts};
+use crate::{console, devices, hermit, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
@@ -45,6 +45,8 @@ struct InitConfig {
 	spec: Spec,
 	cloneflags: CloneFlags,
 	rootfs: String,
+	bundle_rootfs: String,
+	is_hermit_container: bool,
 }
 
 #[derive(Debug)]
@@ -83,9 +85,16 @@ pub fn init_container() {
 
 	//TODO: Ensure we are in a cloned binary (prevent CVE-2019-5736)
 
+	//Detect hermit container
+	let is_hermit_container: bool = env::var("RUNH_HERMIT_CONTAINER")
+		.expect("No value for RUNH_HERMIT_CONTAINER set!")
+		.parse()
+		.expect("RUNH_HERMIT_CONTAINER was not a boolean value!");
+
 	let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(pipe_fd)) };
 	write!(init_pipe, "\0").expect("Unable to write to init-pipe!");
 
+	//Read rootfs from init pipe
 	let mut size_buffer = [0u8; std::mem::size_of::<usize>()];
 	init_pipe
 		.read_exact(&mut size_buffer)
@@ -101,6 +110,28 @@ pub fn init_container() {
 		String::from_utf8(rootfs_path_buffer).expect("Could not parse rootfs-path as string!");
 	debug!("read rootfs from init_pipe: {}", rootfs_path);
 
+	//Read bundle rootfs from init pipe
+	let mut bundle_rootfs_path = rootfs_path.clone();
+	if is_hermit_container {
+		init_pipe
+			.read_exact(&mut size_buffer)
+			.expect("Could not read message size from init-pipe!");
+		let message_size = usize::from_le_bytes(size_buffer);
+		debug!("Bundle rootfs path lenght: {}", message_size);
+
+		let mut bundle_rootfs_path_buffer = vec![0; message_size as usize];
+		init_pipe
+			.read_exact(&mut bundle_rootfs_path_buffer)
+			.expect("Could not read bundle rootfs path from init pipe!");
+		bundle_rootfs_path = String::from_utf8(bundle_rootfs_path_buffer)
+			.expect("Could not parse bundle rootfs path as string!");
+		debug!(
+			"read bundle rootfs path from init_pipe: {}",
+			bundle_rootfs_path
+		);
+	}
+
+	//Read spec file
 	debug!("read config from spec file");
 	let spec_fd: i32 = env::var("RUNH_SPEC_FILE")
 		.expect("No spec file given!")
@@ -153,6 +184,8 @@ pub fn init_container() {
 			spec,
 			cloneflags,
 			rootfs: rootfs_path,
+			bundle_rootfs: bundle_rootfs_path,
+			is_hermit_container,
 		},
 	});
 }
@@ -368,14 +401,18 @@ fn init_stage(args: SetupArgs) -> isize {
 				network::setup_network();
 			}
 
-			//Setup devices, mountpoints and file system
 			let rootfs_path = PathBuf::from(args.config.rootfs);
+			let bundle_rootfs_path = PathBuf::from(args.config.bundle_rootfs);
+
+			//Mount root file system
 			rootfs::mount_rootfs(&args.config.spec, &rootfs_path);
 
+			//Setup mounts and devices
 			let setup_dev = if let Some(mounts) = args.config.spec.mounts() {
 				mounts::configure_mounts(
 					&mounts,
 					&rootfs_path,
+					&bundle_rootfs_path,
 					&args.config.spec.linux().as_ref().unwrap().mount_label(),
 				)
 			} else {
@@ -514,7 +551,8 @@ fn init_stage(args: SetupArgs) -> isize {
 				}
 			}
 
-			let exec_args = args
+			//Verify the args[0] executable exists
+			let mut exec_args = args
 				.config
 				.spec
 				.process()
@@ -522,15 +560,57 @@ fn init_stage(args: SetupArgs) -> isize {
 				.unwrap()
 				.args()
 				.as_ref()
-				.unwrap();
+				.unwrap()
+				.clone();
 
-			//Verify the args[0] executable exists
+			if args.config.is_hermit_container {
+				let app = args
+					.config
+					.spec
+					.process()
+					.as_ref()
+					.unwrap()
+					.args()
+					.as_ref()
+					.unwrap()
+					.get(0)
+					.expect("Container spec does not contain any args!")
+					.as_str();
+				let app_root = PathBuf::from(app)
+					.parent()
+					.expect("App path does not have a parent!")
+					.to_owned();
+				let kernel_path = app_root.join("rusty-loader");
+				let kernel = kernel_path.as_os_str().to_str().unwrap();
+				exec_args = vec![
+					"qemu-system-x86_64",
+					"-enable-kvm",
+					"-display",
+					"none",
+					"-smp",
+					"1",
+					"-m",
+					"64M",
+					"-serial",
+					"stdio",
+					"-kernel",
+					kernel,
+					"-initrd",
+					app,
+					"-cpu",
+					"qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand",
+				]
+				.iter()
+				.map(|s| s.to_string())
+				.collect();
+			}
+
 			let exec_path_rel = PathBuf::from(
 				exec_args
 					.get(0)
 					.expect("Container spec does not contain any args!"),
 			);
-			let exec_path_abs = paths::find_in_path(exec_path_rel)
+			let exec_path_abs = paths::find_in_path(exec_path_rel, None)
 				.expect("Could not determine location of args-executable!");
 
 			info!("Found args-executable: {:?}", exec_path_abs);
@@ -565,6 +645,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			}
 			cmd.envs(std::env::vars());
 			let error = cmd.exec();
+
 			//This point should not be reached on successful exec
 			panic!("exec failed with error {}", error);
 		}

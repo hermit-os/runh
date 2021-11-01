@@ -1,3 +1,6 @@
+use crate::hermit;
+use crate::mounts;
+use crate::paths;
 use crate::state;
 use command_fds::{CommandFdExt, FdMapping};
 use nix::fcntl::OFlag;
@@ -28,22 +31,22 @@ pub fn create_container(
 	pidfile: Option<&str>,
 	console_socket: Option<&str>,
 ) {
-	let mut path = project_dir.clone();
+	let mut container_dir = project_dir.clone();
 
-	let _ = std::fs::create_dir(path.clone());
+	let _ = std::fs::create_dir(container_dir.clone());
 
-	path.push(id.unwrap());
-	std::fs::create_dir(path.clone()).expect("Unable to create container directory");
+	container_dir.push(id.unwrap());
+	std::fs::create_dir(container_dir.clone()).expect("Unable to create container directory");
 	let container = OCIContainer::new(
 		bundle.unwrap().to_string(),
 		id.unwrap().to_string(),
 		pidfile
-			.unwrap_or(&(path.to_str().unwrap().to_owned() + "/containerpid"))
+			.unwrap_or(&(container_dir.to_str().unwrap().to_owned() + "/containerpid"))
 			.to_string(),
 	);
 
 	// write container to disk
-	let spec_path = path.join("container.json");
+	let spec_path = container_dir.join("container.json");
 	let mut file = OpenOptions::new()
 		.read(true)
 		.write(true)
@@ -54,8 +57,11 @@ pub fn create_container(
 		.unwrap();
 
 	// link container bundle
-	fs::symlink(PathBuf::from(bundle.unwrap()), &path.join("bundle"))
-		.expect("Unable to symlink bundle into project dir!");
+	fs::symlink(
+		PathBuf::from(bundle.unwrap()),
+		&container_dir.join("bundle"),
+	)
+	.expect("Unable to symlink bundle into project dir!");
 
 	// write container to root dir
 	let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap()));
@@ -74,8 +80,57 @@ pub fn create_container(
 		container.spec().process().as_ref().unwrap().user().gid()
 	);
 
+	// find rootfs
+	let bundle_rootfs_path = PathBuf::from(&container.spec().root().as_ref().unwrap().path());
+	let bundle_rootfs_path_abs = std::fs::canonicalize(if bundle_rootfs_path.is_absolute() {
+		bundle_rootfs_path
+	} else {
+		PathBuf::from(bundle.unwrap()).join(bundle_rootfs_path)
+	})
+	.expect("Could not parse path to rootfs!");
+
+	//Check for args[0] and detect hermit container
+	let exec_args = &container
+		.spec()
+		.process()
+		.as_ref()
+		.unwrap()
+		.args()
+		.as_ref()
+		.unwrap();
+
+	let exec_path_rel = PathBuf::from(
+		exec_args
+			.get(0)
+			.expect("Container spec does not contain any args!"),
+	);
+	let is_hermit_container = paths::find_in_path(exec_path_rel, Some(&bundle_rootfs_path_abs))
+		.map_or_else(|| {
+			warn!("Could not find args-executable at current point in lifecycle. We will check again later, but hermit executables will NOT be detected!");
+			false
+		}, |exec_path_abs| {
+			hermit::is_hermit_app(&exec_path_abs)
+		});
+
+	if is_hermit_container {
+		info!("Detected RustyHermit executable. Creating container in hermit mode!");
+
+		// if container
+		// 	.spec()
+		// 	.root()
+		// 	.as_ref()
+		// 	.unwrap()
+		// 	.readonly()
+		// 	.unwrap_or_default()
+		// {
+		// 	panic!("Cannot run hermit containers in readonly file systems. This feature is currently unimplemented but could be added later.");
+		// }
+		//Setup hermit environment
+		hermit::prepare_environment(&bundle_rootfs_path_abs, &project_dir);
+	}
+
 	//Setup exec fifo
-	let fifo_location = path.join("exec.fifo");
+	let fifo_location = container_dir.join("exec.fifo");
 	let old_mask = Mode::from_bits_truncate(0o000);
 	nix::unistd::mkfifo(&fifo_location, Mode::from_bits_truncate(0o644))
 		.expect("Could not create fifo!");
@@ -129,6 +184,37 @@ pub fn create_container(
 			}
 		}
 	});
+
+	//Setup file system
+	let mut rootfs_path_abs = bundle_rootfs_path_abs.clone();
+	if is_hermit_container {
+		let overlay_root = container_dir.join("rootfs");
+		let overlay_workdir = overlay_root.join("work");
+		let overlay_upperdir = overlay_root.join("diff");
+		let overlay_mergeddir = overlay_root.join("merged");
+		mounts::create_all_dirs(&overlay_workdir);
+		mounts::create_all_dirs(&overlay_upperdir);
+		mounts::create_all_dirs(&overlay_mergeddir);
+		let datastr = format!(
+			"lowerdir={}:{},upperdir={},workdir={}",
+			hermit::get_environment_path(&project_dir)
+				.as_os_str()
+				.to_str()
+				.unwrap(),
+			bundle_rootfs_path_abs.as_os_str().to_str().unwrap(),
+			overlay_upperdir.as_os_str().to_str().unwrap(),
+			overlay_workdir.as_os_str().to_str().unwrap()
+		);
+		nix::mount::mount::<str, PathBuf, str, str>(
+			Some("overlay"),
+			&overlay_mergeddir,
+			Some("overlay"),
+			nix::mount::MsFlags::empty(),
+			Some(datastr.as_str()),
+		)
+		.expect(format!("Could not create overlay-fs at {:?}", overlay_root).as_str());
+		rootfs_path_abs = std::fs::canonicalize(overlay_mergeddir).unwrap();
+	}
 
 	//Pass spec file
 	let mut config = std::path::PathBuf::from(bundle.unwrap().to_string());
@@ -188,6 +274,7 @@ pub fn create_container(
 		.env("RUNH_SPEC_FILE", "5")
 		.env("RUNH_LOG_PIPE", "6")
 		.env("RUNH_CONSOLE", "7")
+		.env("RUNH_HERMIT_CONTAINER", is_hermit_container.to_string())
 		.spawn()
 		.expect("Unable to spawn runh init process");
 
@@ -207,18 +294,14 @@ pub fn create_container(
 		.expect("Could not read from init pipe!");
 	debug!("Read from init pipe: {}", buffer[0]);
 
-	let rootfs_path = PathBuf::from(&container.spec().root().as_ref().unwrap().path());
-	let rootfs_path_abs = if rootfs_path.is_absolute() {
-		rootfs_path
-	} else {
-		PathBuf::from(bundle.unwrap()).join(rootfs_path)
-	};
-	let rootfs_path_str = std::fs::canonicalize(rootfs_path_abs)
-		.expect("Could not parse path to rootfs!")
+	//send rootfs path to child
+
+	let rootfs_path_str = rootfs_path_abs
 		.as_os_str()
 		.to_str()
 		.expect("Could not convert rootfs-path to string!")
 		.to_string();
+
 	debug!(
 		"Write rootfs-path {} (lenght {}) to init-pipe!",
 		rootfs_path_str,
@@ -231,6 +314,28 @@ pub fn create_container(
 	init_pipe
 		.write_all(rootfs_path_str.as_bytes())
 		.expect("Could not write rootfs-path to init pipe!");
+
+	//send bundle rootfs path to child
+	if is_hermit_container {
+		let bundle_rootfs_path_str = bundle_rootfs_path_abs
+			.as_os_str()
+			.to_str()
+			.expect("Could not convert rootfs-path to string!")
+			.to_string();
+
+		debug!(
+			"Write bundle rootfs path {} (lenght {}) to init-pipe!",
+			bundle_rootfs_path_str,
+			bundle_rootfs_path_str.len()
+		);
+		init_pipe
+			.write(&(bundle_rootfs_path_str.len() as usize).to_le_bytes())
+			.expect("Could not write hermit env path size to init pipe!");
+
+		init_pipe
+			.write_all(bundle_rootfs_path_str.as_bytes())
+			.expect("Could not write hermit env path to init pipe!");
+	}
 
 	debug!("Waiting for runh init to send grandchild PID");
 	let mut pid_buffer = [0; 4];
@@ -258,7 +363,7 @@ pub fn create_container(
 		);
 	}
 
-	let state_location = path.join("created");
+	let state_location = container_dir.join("created");
 	let mut state_file = OpenOptions::new()
 		.read(true)
 		.write(true)

@@ -53,6 +53,7 @@ pub fn mount_console(slave_path: &PathBuf) {
 pub fn configure_mounts(
 	mounts: &Vec<runtime::Mount>,
 	rootfs: &PathBuf,
+	bundle_rootfs: &PathBuf,
 	mount_label: &Option<String>,
 ) -> bool {
 	let mut setup_dev = true;
@@ -61,7 +62,7 @@ pub fn configure_mounts(
 		//Resolve mount source
 		let mut mount_src = PathBuf::from(&mount.source().as_ref().unwrap());
 		if !mount_src.is_absolute() {
-			mount_src = rootfs.join(mount_src);
+			mount_src = bundle_rootfs.join(mount_src);
 		}
 
 		let mount_dest = PathBuf::from(&mount.destination());
@@ -115,18 +116,20 @@ pub fn configure_mounts(
 					} else {
 						create_all_dirs(&PathBuf::from(&destination_resolved.parent().expect(
 							format!("Could not mount to destination {:?} which is not a directory and has no parent dir!", destination_resolved).as_str())));
-						let _ = OpenOptions::new()
-							.mode(0o755)
-							.create(true)
-							.write(true)
-							.open(&destination_resolved)
-							.expect(
-								format!(
-									"Could not create destination for bind mount at {:?}",
-									destination_resolved
-								)
-								.as_str(),
-							);
+						if !destination_resolved.exists() {
+							let _ = OpenOptions::new()
+								.mode(0o755)
+								.create(true)
+								.write(true)
+								.open(&destination_resolved)
+								.expect(
+									format!(
+										"Could not create destination for bind mount at {:?}",
+										destination_resolved
+									)
+									.as_str(),
+								);
+						}
 					}
 
 					mount_with_flags(
@@ -358,8 +361,9 @@ fn open_trough_procfd(
 	);
 	if real_path != full_dest.to_owned() {
 		panic!(
-			"procfd path and destination path do not equal for mount destination {:?}",
-			full_dest
+			"procfd path and destination path do not equal for mount destination {:?}! procfd path was {:?}!",
+			full_dest,
+			real_path
 		);
 	}
 

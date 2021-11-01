@@ -1,3 +1,5 @@
+use nix::mount::MntFlags;
+
 use crate::container::OCIContainer;
 use crate::kill;
 use crate::state;
@@ -11,8 +13,12 @@ pub fn delete_container(mut project_dir: PathBuf, id: Option<&str>, force: bool)
 		if !force {
 			panic!("Tried to delete a container that is not stopped!");
 		} else {
-			warn!("Container is still running. Force-deleting...");
-			kill::kill_container(project_dir.clone(), id, Some("SIGKILL"), false);
+			if container_state.status != "creating" {
+				warn!("Container is still running. Force-deleting...");
+				kill::kill_container(project_dir.clone(), id, Some("SIGKILL"), false);
+			} else {
+				warn!("Container has not finished creation. Force-deleting...")
+			}
 		}
 	}
 
@@ -39,6 +45,11 @@ pub fn delete_container(mut project_dir: PathBuf, id: Option<&str>, force: bool)
 	}
 
 	if delete_file {
+		let rootfs_overlay_dir = container_dir.join("rootfs/merged");
+		if rootfs_overlay_dir.exists() {
+			nix::mount::umount2(&rootfs_overlay_dir, MntFlags::MNT_DETACH)
+				.expect(format!("Could not unmount overlay at {:?}", rootfs_overlay_dir).as_str());
+		}
 		// delete all temporary files
 		fs::remove_dir_all(container_dir).expect("Unable to delete container");
 	}
