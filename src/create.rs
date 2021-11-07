@@ -1,6 +1,7 @@
 use crate::hermit;
 use crate::mounts;
 use crate::paths;
+use crate::rootfs;
 use crate::state;
 use command_fds::{CommandFdExt, FdMapping};
 use nix::fcntl::OFlag;
@@ -31,11 +32,9 @@ pub fn create_container(
 	pidfile: Option<&str>,
 	console_socket: Option<&str>,
 ) {
-	let mut container_dir = project_dir.clone();
+	let _ = std::fs::create_dir(&project_dir);
 
-	let _ = std::fs::create_dir(container_dir.clone());
-
-	container_dir.push(id.unwrap());
+	let container_dir = rootfs::resolve_in_rootfs(&PathBuf::from(id.unwrap()), &project_dir);
 	std::fs::create_dir(container_dir.clone()).expect("Unable to create container directory");
 	let container = OCIContainer::new(
 		bundle.unwrap().to_string(),
@@ -219,7 +218,12 @@ pub fn create_container(
 	//Pass spec file
 	let mut config = std::path::PathBuf::from(bundle.unwrap().to_string());
 	config.push("config.json");
-	let spec_file = File::open(config).expect("Could not open spec file!");
+	let spec_file = OpenOptions::new()
+		.read(true)
+		.write(false)
+		.custom_flags(libc::O_CLOEXEC)
+		.open(config)
+		.expect("Could not open spec file!");
 
 	let mut child_fd_mappings = vec![
 		FdMapping {
@@ -250,13 +254,13 @@ pub fn create_container(
 			.as_str(),
 		);
 		let sock_stream_fd = stream.into_raw_fd();
-		let socket_fd_copy =
-			nix::unistd::dup(sock_stream_fd).expect("Could not duplicate unix stream fd!");
+		//let socket_fd_copy =
+		//	nix::unistd::dup(sock_stream_fd).expect("Could not duplicate unix stream fd!");
 		child_fd_mappings.push(FdMapping {
-			parent_fd: socket_fd_copy,
+			parent_fd: sock_stream_fd,
 			child_fd: 7,
 		});
-		Some((socket_fd_copy, sock_stream_fd))
+		Some(sock_stream_fd)
 	} else {
 		None
 	};
@@ -281,8 +285,7 @@ pub fn create_container(
 	debug!("Started init process. Closing child fds in create process.");
 	nix::unistd::close(child_socket_fd).expect("Could not close child_socket_fd!");
 	nix::unistd::close(child_log_fd).expect("Could not close child_log_fd!");
-	if let Some((socket_fd, stream_fd)) = socket_fds {
-		nix::unistd::close(socket_fd).expect("Could not close console socket_fd!");
+	if let Some(stream_fd) = socket_fds {
 		nix::unistd::close(stream_fd).expect("Could not close console stream_fd!");
 	}
 
