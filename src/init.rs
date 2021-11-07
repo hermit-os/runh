@@ -9,12 +9,11 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
-use crate::{console, devices, hermit, mounts};
+use crate::{console, devices, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
 use nix::sched::CloneFlags;
-use nix::sys::socket;
 use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime;
 use oci_spec::runtime::Spec;
@@ -37,7 +36,6 @@ impl From<(i32, i32)> for SocketPair {
 enum InitStage {
 	PARENT,
 	CHILD,
-	GRANDCHILD,
 }
 
 #[derive(Debug)]
@@ -53,8 +51,6 @@ struct InitConfig {
 struct SetupArgs {
 	stage: InitStage,
 	init_pipe: RawFd,
-	parent_child_sync: SocketPair,
-	parent_grandchild_sync: SocketPair,
 	config: InitConfig,
 }
 
@@ -72,11 +68,10 @@ pub fn init_container() {
 	// analogous to https://github.com/opencontainers/runc/blob/master/libcontainer/nsenter/nsexec.c
 
 	// During this process, it:
-	// - forks a child process
 	// - unshares from the user namespaces
 	// - unshares from all other requested namespaces
-	// - creates a grandchild process in a new PID namespace
-	// - reports back the child- and grandchild-PID to the create process
+	// - creates a child process in a new PID namespace
+	// - reports back the child-PID to the create process
 	// - Waits for the exec-fifo to open during the runh start call
 	let pipe_fd: i32 = env::var("RUNH_INITPIPE")
 		.expect("No init pipe given!")
@@ -152,34 +147,32 @@ pub fn init_container() {
 	debug!("set process as non-dumpable");
 	prctl::set_dumpable(false).expect("Could not set process as non-dumpable!");
 
-	debug!("create child sync pipe");
-	let parent_child_sync = SocketPair::from(
-		socket::socketpair(
-			socket::AddressFamily::Unix,
-			socket::SockType::Stream,
-			None,
-			socket::SockFlag::SOCK_CLOEXEC,
-		)
-		.expect("Could not create parent-child socket pair for init pipe!"),
-	);
+	// debug!("create child sync pipe");
+	// let parent_child_sync = SocketPair::from(
+	// 	socket::socketpair(
+	// 		socket::AddressFamily::Unix,
+	// 		socket::SockType::Stream,
+	// 		None,
+	// 		socket::SockFlag::SOCK_CLOEXEC,
+	// 	)
+	// 	.expect("Could not create parent-child socket pair for init pipe!"),
+	// );
 
-	debug!("create grandchild sync pipe");
-	let parent_grandchild_sync = SocketPair::from(
-		socket::socketpair(
-			socket::AddressFamily::Unix,
-			socket::SockType::Stream,
-			None,
-			socket::SockFlag::SOCK_CLOEXEC,
-		)
-		.expect("Could not create parent-grandchild socket pair for init pipe!"),
-	);
+	// debug!("create grandchild sync pipe");
+	// let parent_grandchild_sync = SocketPair::from(
+	// 	socket::socketpair(
+	// 		socket::AddressFamily::Unix,
+	// 		socket::SockType::Stream,
+	// 		None,
+	// 		socket::SockFlag::SOCK_CLOEXEC,
+	// 	)
+	// 	.expect("Could not create parent-grandchild socket pair for init pipe!"),
+	// );
 
 	debug!("jump into init_stage");
 	init_stage(SetupArgs {
 		stage: InitStage::PARENT,
 		init_pipe: init_pipe.into_raw_fd(),
-		parent_child_sync,
-		parent_grandchild_sync,
 		config: InitConfig {
 			spec,
 			cloneflags,
@@ -216,52 +209,53 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 fn init_stage(args: SetupArgs) -> isize {
 	let linux_spec = args.config.spec.linux().as_ref().unwrap();
 	match args.stage {
+		// InitStage::PARENT => {
+		// 	debug!("enter init_stage parent");
+		// 	// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
+		// 	let _ = prctl::set_name("runh:PARENT");
+		// 	let child_pid = clone_process(Box::new(CloneArgs {
+		// 		stack: [0; STACK_SIZE],
+		// 		args: SetupArgs {
+		// 			stage: InitStage::CHILD,
+		// 			init_pipe: args.init_pipe,
+		// 			parent_child_sync: args.parent_child_sync,
+		// 			parent_grandchild_sync: args.parent_grandchild_sync,
+		// 			config: args.config,
+		// 		},
+		// 		child_func: Box::new(init_stage),
+		// 	}));
+		// 	debug!("Created child with pid {}", child_pid);
+		// 	debug!("Wait for synchronization with children!");
+
+		// 	let mut pid_buffer = [0; 4];
+		// 	let mut child_sync_pipe = unsafe { File::from_raw_fd(args.parent_child_sync.parent) };
+		// 	debug!(
+		// 		"Listening on fd {} for grandchild pid",
+		// 		args.parent_child_sync.parent
+		// 	);
+		// 	child_sync_pipe
+		// 		.read_exact(&mut pid_buffer)
+		// 		.expect("could not synchronize with first child!");
+
+		// 	let received_pid = i32::from_le_bytes(pid_buffer);
+		// 	debug!("Received child PID: {}", received_pid);
+
+		// 	debug!("send child PID to runh create");
+		// 	let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
+		// 	init_pipe
+		// 		.write(&pid_buffer)
+		// 		.expect("Unable to write to init-pipe!");
+		// 	return 0; // Exit parent
+		// }
 		InitStage::PARENT => {
 			debug!("enter init_stage parent");
 			// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
 			let _ = prctl::set_name("runh:PARENT");
-			let child_pid = clone_process(Box::new(CloneArgs {
-				stack: [0; STACK_SIZE],
-				args: SetupArgs {
-					stage: InitStage::CHILD,
-					init_pipe: args.init_pipe,
-					parent_child_sync: args.parent_child_sync,
-					parent_grandchild_sync: args.parent_grandchild_sync,
-					config: args.config,
-				},
-				child_func: Box::new(init_stage),
-			}));
-			debug!("Created child with pid {}", child_pid);
-			debug!("Wait for synchronization with children!");
-
-			let mut pid_buffer = [0; 4];
-			let mut child_sync_pipe = unsafe { File::from_raw_fd(args.parent_child_sync.parent) };
-			debug!(
-				"Listening on fd {} for grandchild pid",
-				args.parent_child_sync.parent
-			);
-			child_sync_pipe
-				.read_exact(&mut pid_buffer)
-				.expect("could not synchronize with first child!");
-
-			let received_pid = i32::from_le_bytes(pid_buffer);
-			debug!("Received child PID: {}", received_pid);
-
-			debug!("send child PID to runh create");
-			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
-			init_pipe
-				.write(&pid_buffer)
-				.expect("Unable to write to init-pipe!");
-			return 0; // Exit parent
-		}
-		InitStage::CHILD => {
-			debug!("enter init_stage child");
-			let _ = prctl::set_name("runh:CHILD");
 			if let Some(namespaces) = &linux_spec.namespaces() {
 				namespaces::join_namespaces(namespaces)
 			}
 
-			//TODO: Unshare user namespace if requested
+			//TODO: Unshare user namespace if requested (needs additional clone)
 			//TODO: Let parent setup uidmap/gidmap if a user namespace was joined
 
 			nix::unistd::setresuid(Uid::from_raw(0), Uid::from_raw(0), Uid::from_raw(0))
@@ -277,30 +271,27 @@ fn init_stage(args: SetupArgs) -> isize {
 			nix::sched::unshare(flags).expect("could not unshare non-user namespaces!");
 
 			// Fork again into new PID-Namespace and send PID to parent
-			let grandchild_pid: i32 = clone_process(Box::new(CloneArgs {
+			let child_pid: i32 = clone_process(Box::new(CloneArgs {
 				stack: [0; STACK_SIZE],
 				args: SetupArgs {
-					stage: InitStage::GRANDCHILD,
+					stage: InitStage::CHILD,
 					init_pipe: args.init_pipe,
-					parent_child_sync: args.parent_child_sync,
-					parent_grandchild_sync: args.parent_grandchild_sync,
 					config: args.config,
 				},
 				child_func: Box::new(init_stage),
 			}))
 			.into();
 
-			// Send grandchild-PID to parent process
-			debug!("writing PID to fd {}", args.parent_child_sync.child);
-			let mut child_sync_pipe = unsafe { File::from_raw_fd(args.parent_child_sync.child) };
-			let written_bytes = child_sync_pipe
-				.write(&grandchild_pid.to_le_bytes())
-				.expect("Could not write grandchild-PID to pipe!");
-			debug!("Wrote {} bytes for grandchild-PID", written_bytes);
+			debug!("send child PID to runh create");
+			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
+			let written_bytes = init_pipe
+				.write(&child_pid.to_le_bytes())
+				.expect("Unable to write to init-pipe!");
+			debug!("Wrote {} bytes for child-PID", written_bytes);
 			return 0; // Exit child process
 		}
-		InitStage::GRANDCHILD => {
-			debug!("enter init_stage grandchild");
+		InitStage::CHILD => {
+			debug!("enter init_stage child");
 			let _ = prctl::set_name("runh:INIT");
 			debug!("Welcome to the container! This is PID {}", Pid::this());
 
