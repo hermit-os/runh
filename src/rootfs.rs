@@ -139,11 +139,12 @@ pub fn set_rootfs_read_only() {
 	flags.insert(MsFlags::MS_REMOUNT);
 	flags.insert(MsFlags::MS_RDONLY);
 	if let Err(_) = nix::mount::mount::<str, str, str, str>(None, "/", None, flags, None) {
-		let stat = nix::sys::statvfs::statvfs("/").expect("Could not stat / after read-only remount!");
+		let stat =
+			nix::sys::statvfs::statvfs("/").expect("Could not stat / after read-only remount!");
 
 		let mount_flags_new = MsFlags::from_bits(flags.bits() | stat.flags().bits())
 			.expect("Could not combine old and new mount flags!");
-	
+
 		nix::mount::mount::<str, str, str, str>(None, "/", None, mount_flags_new, None)
 			.expect("Could not change / mount type!");
 	} //The first mount should not fail unless we are in a user namespace so technically the content of the if-block is unreachable.
