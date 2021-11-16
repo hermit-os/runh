@@ -251,11 +251,16 @@ fn init_stage(args: SetupArgs) -> isize {
 			debug!("enter init_stage parent");
 			// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
 			let _ = prctl::set_name("runh:PARENT");
+
 			if let Some(namespaces) = &linux_spec.namespaces() {
 				namespaces::join_namespaces(namespaces)
 			}
 
 			//TODO: Unshare user namespace if requested (needs additional clone)
+			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWUSER) {
+				unimplemented!("User namespaces are currently not supported by runh!")
+			}
+
 			//TODO: Let parent setup uidmap/gidmap if a user namespace was joined
 
 			nix::unistd::setresuid(Uid::from_raw(0), Uid::from_raw(0), Uid::from_raw(0))
@@ -541,6 +546,13 @@ fn init_stage(args: SetupArgs) -> isize {
 					prctl::set_no_new_privs().expect("Could not set no_new_privs flag!");
 				}
 			}
+
+			//TODO: Apply seccomp
+			//TODO: Finalize Namespace
+			// - Ensure all fd's are CLOEXEC
+			// - Change to cwd
+			// - Change user
+			// - Apply capabilities
 
 			//Verify the args[0] executable exists
 			let mut exec_args = args

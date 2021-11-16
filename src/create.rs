@@ -103,14 +103,13 @@ pub fn create_container(
 			.get(0)
 			.expect("Container spec does not contain any args!"),
 	);
-	let is_hermit_container = paths::find_in_path(exec_path_rel, Some(&bundle_rootfs_path_abs))
-		.map_or_else(|| {
-			warn!("Could not find args-executable at current point in lifecycle. We will check again later, but hermit executables will NOT be detected!");
-			false
-		}, |exec_path_abs| {
-			hermit::is_hermit_app(&exec_path_abs)
-		});
-
+	let exec_path_abs = rootfs::resolve_in_rootfs(&exec_path_rel, &bundle_rootfs_path_abs);
+	let is_hermit_container = if exec_path_abs.exists() {
+		hermit::is_hermit_app(&exec_path_abs)
+	} else {
+		warn!("Could not find args-executable at current point in lifecycle. We will check again later, but hermit executables will NOT be detected!");
+		false
+	};
 	if is_hermit_container {
 		info!("Detected RustyHermit executable. Creating container in hermit mode!");
 

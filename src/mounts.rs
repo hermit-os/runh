@@ -4,7 +4,7 @@ use std::{
 	fs::{DirBuilder, File, OpenOptions},
 	os::unix::{
 		fs::DirBuilderExt,
-		prelude::{AsRawFd, OpenOptionsExt},
+		prelude::{AsRawFd, MetadataExt, OpenOptionsExt},
 	},
 	path::PathBuf,
 };
@@ -161,7 +161,7 @@ pub fn configure_mounts(
 			} else {
 				match mount.typ().as_ref().and_then(|x| Some(x.as_str())) {
 					Some("sysfs") | Some("proc") => {
-						if destination_resolved.is_dir() || !destination_resolved.exists() {
+						if !destination_resolved.exists() || destination_resolved.is_dir() {
 							create_all_dirs(&destination_resolved);
 							mount_with_flags(
 								mount_device,
@@ -189,9 +189,23 @@ pub fn configure_mounts(
 						);
 					}
 					Some("tmpfs") => {
-						if !destination_resolved.exists() {
+						let tmpfs_mode = if !destination_resolved.exists() {
 							create_all_dirs(&destination_resolved);
-						}
+							None
+						} else {
+							Some(
+								destination_resolved
+									.metadata()
+									.expect(
+										format!(
+										"Could not read metadata for (existing) mount destination at {:?}",
+										destination_resolved
+									)
+										.as_str(),
+									)
+									.permissions(),
+							)
+						};
 						let is_read_only = mount_options.mount_flags.contains(MsFlags::MS_RDONLY);
 						mount_with_flags(
 							mount_device,
@@ -201,6 +215,17 @@ pub fn configure_mounts(
 							mount_options.clone(),
 							mount_label.as_ref(),
 						);
+
+						if let Some(mode) = tmpfs_mode {
+							std::fs::set_permissions(&destination_resolved, mode).expect(
+								format!(
+									"Could not change permission on newly mounted tmpfs at {:?}",
+									destination_resolved
+								)
+								.as_str(),
+							);
+						}
+
 						if is_read_only {
 							remount(
 								mount_device,
@@ -336,7 +361,7 @@ fn open_trough_procfd(
 	full_dest: &PathBuf,
 	options: &mut MountOptions,
 ) -> File {
-	if mount_dest.starts_with("/dev") || device == "tmpfs" {
+	if mount_dest.clone() == PathBuf::from("/dev") || device == "tmpfs" {
 		options.mount_flags.remove(MsFlags::MS_RDONLY);
 	}
 
