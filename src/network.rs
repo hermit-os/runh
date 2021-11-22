@@ -6,6 +6,7 @@ pub struct HermitNetworkConfig {
 	pub ip: Ipv4Addr,
 	pub gateway: Ipv4Addr,
 	pub mask: Ipv4Addr,
+	pub mac: String
 }
 
 pub async fn set_lo_up() -> Result<(), Error> {
@@ -63,6 +64,16 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 	);
 	let inet_str = inet_str_output.trim_end_matches("\n");
 	let mut inet_str_split = inet_str.split("/");
+
+	let mac_str_output = run_command(
+		"/bin/sh",
+		vec![
+			"-c",
+			r#"echo `ip addr show dev eth0  | grep "link/ether\ " | awk '{print $2}'`"#,
+		],
+	);
+	let mac_str = mac_str_output.trim_end_matches("\n");
+
 	let ip_addr = inet_str_split.next().unwrap();
 	let cidr = inet_str_split.next().unwrap();
 
@@ -78,14 +89,15 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 	let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
 	let _ = run_command("ip", vec!["link", "set", "dev", "tap100", "up"]);
 	let _ = run_command("ip", vec!["addr", "delete", inet_str, "dev", "eth0"]);
+	let _ = run_command("ip", vec!["link", "set", "eth0", "address", "aa:aa:aa:aa:bb:cc"]); //Random MAC taken from the Nabla code
 	let _ = run_command("ip", vec!["link", "add", "name", "br0", "type", "bridge"]);
 	let _ = run_command("ip", vec!["link", "set", "eth0", "master", "br0"]);
 	let _ = run_command("ip", vec!["link", "set", "tap100", "master", "br0"]);
 	let _ = run_command("ip", vec!["link", "set", "br0", "up"]);
 
 	info!(
-		"Executed ip commands: IP={},MASK={},GW={}",
-		ip_addr, cidr, gateway
+		"Executed ip commands: IP={},MASK={},GW={},MAC={}",
+		ip_addr, cidr, gateway, mac_str
 	);
 
 	let cidr_int: u32 = cidr.parse().unwrap();
@@ -94,5 +106,6 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 		ip: ip_addr.parse().unwrap(),
 		gateway: gateway.parse().unwrap(),
 		mask,
+		mac: mac_str.to_string()
 	})
 }
