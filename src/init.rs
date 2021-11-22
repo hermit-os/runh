@@ -609,6 +609,7 @@ fn init_stage(args: SetupArgs) -> isize {
 					.to_owned();
 				let kernel_path = app_root.join("rusty-loader");
 				let kernel = kernel_path.as_os_str().to_str().unwrap();
+
 				exec_args = vec![
 					"qemu-system-x86_64",
 					"-enable-kvm",
@@ -631,18 +632,32 @@ fn init_stage(args: SetupArgs) -> isize {
 					"-device",
 					format!("virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
 						hermit_network_config.as_ref().unwrap().mac).as_str(),
-					"-append",
-					format!(
-						"-ip {} -gateway {} -mask {}",
-						hermit_network_config.as_ref().unwrap().ip.to_string(),
-						hermit_network_config.as_ref().unwrap().gateway.to_string(),
-						hermit_network_config.as_ref().unwrap().mask.to_string()
-					)
-					.as_str(),
+					"-append"
 				]
 				.iter()
 				.map(|s| s.to_string())
 				.collect();
+
+				let mut args_string = format!(
+					"-ip {} -gateway {} -mask {}",
+					hermit_network_config.as_ref().unwrap().ip.to_string(),
+					hermit_network_config.as_ref().unwrap().gateway.to_string(),
+					hermit_network_config.as_ref().unwrap().mask.to_string()
+				);
+
+				if let Some(application_args) = args
+					.config
+					.spec
+					.process()
+					.as_ref()
+					.unwrap()
+					.args()
+					.as_ref()
+					.unwrap()
+					.get(1..) {
+						args_string = format!("{} -- {}", args_string, application_args.join(" "));
+				}
+				exec_args.push(args_string);
 			}
 
 			let exec_path_rel = PathBuf::from(
