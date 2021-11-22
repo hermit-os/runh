@@ -86,17 +86,28 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 	);
 	let gateway = gateway_output.trim_end_matches("\n");
 
-	let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
-	let _ = run_command("ip", vec!["link", "set", "dev", "tap100", "up"]);
-	let _ = run_command("ip", vec!["addr", "delete", inet_str, "dev", "eth0"]);
-	let _ = run_command("ip", vec!["link", "set", "eth0", "address", "aa:aa:aa:aa:bb:cc"]); //Random MAC taken from the Nabla code
-	let _ = run_command("ip", vec!["link", "add", "name", "br0", "type", "bridge"]);
-	let _ = run_command("ip", vec!["link", "set", "eth0", "master", "br0"]);
-	let _ = run_command("ip", vec!["link", "set", "tap100", "master", "br0"]);
-	let _ = run_command("ip", vec!["link", "set", "br0", "up"]);
+	let (connection, handle, _) = rtnetlink::new_connection().unwrap();
+	tokio::spawn(connection);
+	let mut links = handle
+		.link()
+		.get()
+		.set_name_filter("tap100".to_string())
+		.execute();
+	if links.try_next().await?.is_none() {
+		let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
+		let _ = run_command("ip", vec!["link", "set", "dev", "tap100", "up"]);
+		let _ = run_command("ip", vec!["addr", "delete", inet_str, "dev", "eth0"]);
+		let _ = run_command("ip", vec!["link", "set", "eth0", "address", "aa:aa:aa:aa:bb:cc"]); //Random MAC taken from the Nabla code
+		let _ = run_command("ip", vec!["link", "add", "name", "br0", "type", "bridge"]);
+		let _ = run_command("ip", vec!["link", "set", "eth0", "master", "br0"]);
+		let _ = run_command("ip", vec!["link", "set", "tap100", "master", "br0"]);
+		let _ = run_command("ip", vec!["link", "set", "br0", "up"]);
+	} else {
+		warn!("Tap device already exists in current network namespace. Skipping configuration...");
+	}
 
 	info!(
-		"Executed ip commands: IP={},MASK={},GW={},MAC={}",
+		"Found / created network setup: IP={},MASK={},GW={},MAC={}",
 		ip_addr, cidr, gateway, mac_str
 	);
 
