@@ -393,8 +393,13 @@ fn init_stage(args: SetupArgs) -> isize {
 					}
 				}
 			}
+			let tokio_runtime =
+				tokio::runtime::Runtime::new().expect("Could not spawn new tokio runtime!");
+
 			if setup_network {
-				network::setup_network();
+				tokio_runtime
+					.block_on(network::set_lo_up())
+					.expect("Could not setup network lo interface!");
 			}
 
 			let rootfs_path = PathBuf::from(args.config.rootfs);
@@ -421,6 +426,15 @@ fn init_stage(args: SetupArgs) -> isize {
 				devices::setup_dev_symlinks(&rootfs_path);
 			}
 
+			if args.config.is_hermit_container {
+				devices::mount_hermit_devices(&rootfs_path);
+				devices::create_tun(
+					&rootfs_path,
+					Uid::from_raw(args.config.spec.process().as_ref().unwrap().user().uid()),
+					Gid::from_raw(args.config.spec.process().as_ref().unwrap().user().gid()),
+				);
+			}
+
 			//Run pre-start hooks
 			debug!("Signalling parent to run pre-start hooks");
 			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
@@ -439,6 +453,16 @@ fn init_stage(args: SetupArgs) -> isize {
 					sig_buffer[0]
 				);
 			}
+
+			let hermit_network_config = if setup_network && args.config.is_hermit_container {
+				Some(
+					tokio_runtime
+						.block_on(network::create_tap())
+						.expect("Could not setup network lo interface!"),
+				)
+			} else {
+				None
+			};
 
 			nix::unistd::chdir(&rootfs_path).expect(
 				format!(
@@ -593,7 +617,7 @@ fn init_stage(args: SetupArgs) -> isize {
 					"-smp",
 					"1",
 					"-m",
-					"64M",
+					"1G",
 					"-serial",
 					"stdio",
 					"-kernel",
@@ -602,6 +626,18 @@ fn init_stage(args: SetupArgs) -> isize {
 					app,
 					"-cpu",
 					"qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand",
+					"-netdev",
+					"tap,id=net0,ifname=tap100,script=no,downscript=no,vhost=on",
+					"-device",
+					"virtio-net-pci,netdev=net0,disable-legacy=on",
+					"-append",
+					format!(
+						"-ip {} -gateway {} -mask {}",
+						hermit_network_config.as_ref().unwrap().ip.to_string(),
+						hermit_network_config.as_ref().unwrap().gateway.to_string(),
+						hermit_network_config.as_ref().unwrap().mask.to_string()
+					)
+					.as_str(),
 				]
 				.iter()
 				.map(|s| s.to_string())
@@ -617,6 +653,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				.expect("Could not determine location of args-executable!");
 
 			info!("Found args-executable: {:?}", exec_path_abs);
+			info!("Running command {}", exec_args.join(" "));
 
 			//Tell runh create we are ready to execv
 			init_pipe
