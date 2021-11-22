@@ -12,10 +12,10 @@ use std::{
 use crate::rootfs;
 
 #[derive(Clone)]
-struct MountOptions {
-	mount_flags: MsFlags,
-	propagation_flags: MsFlags,
-	data: Option<String>,
+pub struct MountOptions {
+	pub mount_flags: MsFlags,
+	pub propagation_flags: MsFlags,
+	pub data: Option<String>,
 }
 
 impl Default for MountOptions {
@@ -307,7 +307,7 @@ fn remount(
 	);
 }
 
-fn mount_with_flags(
+pub fn mount_with_flags(
 	device: &str,
 	mount_src: &PathBuf,
 	mount_dest: &PathBuf,
