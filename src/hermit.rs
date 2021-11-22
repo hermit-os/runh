@@ -16,7 +16,7 @@ pub fn is_hermit_app(path: &PathBuf) -> bool {
 pub fn create_environment(path: &PathBuf) {}
 
 pub fn get_environment_path(project_dir: &PathBuf) -> PathBuf {
-	PathBuf::from("/home/jonas/hermit-environment")
+	PathBuf::from("/global/projects/runh/hermit")
 }
 
 pub fn prepare_environment(rootfs: &PathBuf, project_dir: &PathBuf) {

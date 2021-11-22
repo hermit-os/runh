@@ -629,7 +629,8 @@ fn init_stage(args: SetupArgs) -> isize {
 					"-netdev",
 					"tap,id=net0,ifname=tap100,script=no,downscript=no,vhost=on",
 					"-device",
-					"virtio-net-pci,netdev=net0,disable-legacy=on",
+					format!("virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
+						hermit_network_config.as_ref().unwrap().mac).as_str(),
 					"-append",
 					format!(
 						"-ip {} -gateway {} -mask {}",
