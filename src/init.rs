@@ -454,7 +454,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				);
 			}
 
-			let hermit_network_config = if setup_network && args.config.is_hermit_container {
+			let hermit_network_config = if args.config.is_hermit_container {
 				Some(
 					tokio_runtime
 						.block_on(network::create_tap())
