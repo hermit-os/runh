@@ -55,6 +55,14 @@ fn run_command(command: &str, args: Vec<&str>) -> String {
 */
 pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 	//FIXME: This is extremely ugly
+
+	let _ = run_command( //Debugging
+		"ip",
+		vec![
+			"addr"
+		],
+	);
+
 	let inet_str_output = run_command(
 		"/bin/sh",
 		vec![
@@ -63,6 +71,12 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 		],
 	);
 	let inet_str = inet_str_output.trim_end_matches("\n");
+
+	if inet_str.is_empty() {
+		warn!("Could not perform network setup! eth0 interface does not exist!");
+		return Err(Error::RequestFailed);
+	}
+
 	let mut inet_str_split = inet_str.split("/");
 
 	let mac_str_output = run_command(
