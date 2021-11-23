@@ -1,12 +1,17 @@
 use futures::TryStreamExt;
 use rtnetlink::Error;
+use serde::{Deserialize, Serialize};
 use std::{net::Ipv4Addr, process::Stdio};
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct HermitNetworkConfig {
 	pub ip: Ipv4Addr,
 	pub gateway: Ipv4Addr,
 	pub mask: Ipv4Addr,
-	pub mac: String
+	pub mac: String,
+	pub network_namespace: Option<String>,
+	#[serde(skip)]
+	pub did_init: bool,
 }
 
 pub async fn set_lo_up() -> Result<(), Error> {
@@ -22,6 +27,31 @@ pub async fn set_lo_up() -> Result<(), Error> {
 	} else {
 		panic!("Link lo not found!");
 	}
+	Ok(())
+}
+
+pub fn undo_tap_creation(config: &HermitNetworkConfig) -> Result<(), Box<dyn std::error::Error>> {
+	let _ = run_command("ip", vec!["tuntap", "del", "tap100", "mode", "tap"]);
+	let _ = run_command("ip", vec!["link", "delete", "br0"]);
+	let _ = run_command(
+		"ip",
+		vec!["link", "set", "eth0", "address", config.mac.as_str()],
+	);
+	let _ = run_command(
+		"ip",
+		vec![
+			"addr",
+			"add",
+			format!(
+				"{}/{}",
+				config.ip.to_string(),
+				u32::from(config.mask).trailing_zeros()
+			)
+			.as_str(),
+			"dev",
+			"eth0",
+		],
+	);
 	Ok(())
 }
 
@@ -53,14 +83,14 @@ fn run_command(command: &str, args: Vec<&str>) -> String {
  This function is in large parts inspired by the runnc code for Nabla Containers
  https://github.com/nabla-containers/runnc/blob/46ededdd75a03cecf05936a1a45d5d0096a2b117/nabla-lib/network/network_linux.go
 */
-pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
+pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetworkConfig, Error> {
 	//FIXME: This is extremely ugly
+	let mut did_init = false;
 
-	let _ = run_command( //Debugging
+	let _ = run_command(
+		//Debugging
 		"ip",
-		vec![
-			"addr"
-		],
+		vec!["addr"],
 	);
 
 	let inet_str_output = run_command(
@@ -108,10 +138,14 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 		.set_name_filter("tap100".to_string())
 		.execute();
 	if links.try_next().await?.is_none() {
+		did_init = true;
 		let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
 		let _ = run_command("ip", vec!["link", "set", "dev", "tap100", "up"]);
 		let _ = run_command("ip", vec!["addr", "delete", inet_str, "dev", "eth0"]);
-		let _ = run_command("ip", vec!["link", "set", "eth0", "address", "aa:aa:aa:aa:bb:cc"]); //Random MAC taken from the Nabla code
+		let _ = run_command(
+			"ip",
+			vec!["link", "set", "eth0", "address", "aa:aa:aa:aa:bb:cc"],
+		); //Random MAC taken from the Nabla code
 		let _ = run_command("ip", vec!["link", "add", "name", "br0", "type", "bridge"]);
 		let _ = run_command("ip", vec!["link", "set", "eth0", "master", "br0"]);
 		let _ = run_command("ip", vec!["link", "set", "tap100", "master", "br0"]);
@@ -131,6 +165,8 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Error> {
 		ip: ip_addr.parse().unwrap(),
 		gateway: gateway.parse().unwrap(),
 		mask,
-		mac: mac_str.to_string()
+		mac: mac_str.to_string(),
+		network_namespace,
+		did_init,
 	})
 }

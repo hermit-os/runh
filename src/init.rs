@@ -13,6 +13,7 @@ use crate::{console, devices, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
+use cgroups_rs::Controller;
 use nix::sched::CloneFlags;
 use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime;
@@ -370,6 +371,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			//TODO: Create new session keyring if requested
 			//TODO: Setup network and routing
 			let mut setup_network = false;
+			let mut network_namespace: Option<String> = None;
 			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNET) {
 				for ns in args
 					.config
@@ -387,6 +389,9 @@ fn init_stage(args: SetupArgs) -> isize {
 								|| ns.path().as_ref().unwrap().as_os_str().is_empty()
 							{
 								setup_network = true;
+							} else {
+								network_namespace =
+									Some(ns.path().as_ref().unwrap().to_str().unwrap().to_string());
 							}
 						}
 						_ => {}
@@ -448,18 +453,56 @@ fn init_stage(args: SetupArgs) -> isize {
 				.expect("Could not read from init pipe!");
 			if sig_buffer[0] != crate::consts::CREATE_ACK_PRESTART_HOOKS {
 				panic!(
-					"Received invalid signal from runh init! Expected {:x}, got {:x}",
+					"Received invalid signal from runh create! Expected {:x}, got {:x}",
 					crate::consts::CREATE_ACK_PRESTART_HOOKS,
 					sig_buffer[0]
 				);
 			}
 
 			let hermit_network_config = if args.config.is_hermit_container {
-				Some(
-					tokio_runtime
-						.block_on(network::create_tap())
-						.expect("Could not setup hermit network!"),
-				)
+				let config = tokio_runtime
+					.block_on(network::create_tap(network_namespace.clone()))
+					.expect("Could not setup hermit network!");
+
+				if config.did_init && network_namespace.is_some() {
+					init_pipe
+						.write(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
+						.expect("Unable to write to init-pipe!");
+
+					let network_config_str = serde_json::to_string(&config)
+						.expect("Could not serialize hermit network config!");
+
+					debug!(
+						"Write hermit network config {} (lenght {}) to init-pipe!",
+						network_config_str,
+						network_config_str.len()
+					);
+					init_pipe
+						.write(&(network_config_str.len() as usize).to_le_bytes())
+						.expect("Could not write hermit env path size to init pipe!");
+
+					init_pipe
+						.write_all(network_config_str.as_bytes())
+						.expect("Could not write hermit env path to init pipe!");
+				} else {
+					init_pipe
+						.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
+						.expect("Unable to write to init-pipe!");
+				}
+
+				let mut sig_buffer = [0u8];
+				init_pipe
+					.read_exact(&mut sig_buffer)
+					.expect("Could not read from init pipe!");
+				if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
+					panic!(
+						"Received invalid signal from runh create! Expected {:x}, got {:x}",
+						crate::consts::CREATE_ACK_NETWORK_SETUP,
+						sig_buffer[0]
+					);
+				}
+
+				Some(config)
 			} else {
 				None
 			};
@@ -630,9 +673,12 @@ fn init_stage(args: SetupArgs) -> isize {
 					"-netdev",
 					"tap,id=net0,ifname=tap100,script=no,downscript=no,vhost=on",
 					"-device",
-					format!("virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
-						hermit_network_config.as_ref().unwrap().mac).as_str(),
-					"-append"
+					format!(
+						"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
+						hermit_network_config.as_ref().unwrap().mac
+					)
+					.as_str(),
+					"-append",
 				]
 				.iter()
 				.map(|s| s.to_string())
@@ -654,8 +700,9 @@ fn init_stage(args: SetupArgs) -> isize {
 					.args()
 					.as_ref()
 					.unwrap()
-					.get(1..) {
-						args_string = format!("{} -- {}", args_string, application_args.join(" "));
+					.get(1..)
+				{
+					args_string = format!("{} -- {}", args_string, application_args.join(" "));
 				}
 				exec_args.push(args_string);
 			}
