@@ -458,7 +458,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				Some(
 					tokio_runtime
 						.block_on(network::create_tap())
-						.expect("Could not setup network lo interface!"),
+						.expect("Could not setup hermit network!"),
 				)
 			} else {
 				None
