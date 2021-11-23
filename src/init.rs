@@ -13,7 +13,6 @@ use crate::{console, devices, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
-use cgroups_rs::Controller;
 use nix::sched::CloneFlags;
 use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime;
@@ -372,30 +371,28 @@ fn init_stage(args: SetupArgs) -> isize {
 			//TODO: Setup network and routing
 			let mut setup_network = false;
 			let mut network_namespace: Option<String> = None;
-			if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNET) {
-				for ns in args
-					.config
-					.spec
-					.linux()
-					.as_ref()
-					.unwrap()
-					.namespaces()
-					.as_ref()
-					.unwrap()
-				{
-					match ns.typ() {
-						runtime::LinuxNamespaceType::Network => {
-							if ns.path().is_none()
-								|| ns.path().as_ref().unwrap().as_os_str().is_empty()
-							{
-								setup_network = true;
-							} else {
-								network_namespace =
-									Some(ns.path().as_ref().unwrap().to_str().unwrap().to_string());
-							}
+			for ns in args
+				.config
+				.spec
+				.linux()
+				.as_ref()
+				.unwrap()
+				.namespaces()
+				.as_ref()
+				.unwrap()
+			{
+				match ns.typ() {
+					runtime::LinuxNamespaceType::Network => {
+						if ns.path().is_none()
+							|| ns.path().as_ref().unwrap().as_os_str().is_empty()
+						{
+							setup_network = true;
+						} else {
+							network_namespace =
+								Some(ns.path().as_ref().unwrap().to_str().unwrap().to_string());
 						}
-						_ => {}
 					}
+					_ => {}
 				}
 			}
 			let tokio_runtime =
