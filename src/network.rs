@@ -1,7 +1,11 @@
 use futures::TryStreamExt;
-use rtnetlink::Error;
 use serde::{Deserialize, Serialize};
-use std::{net::Ipv4Addr, process::Stdio};
+use std::{error::Error, fmt, net::Ipv4Addr, process::Stdio};
+
+#[derive(Debug)]
+struct HermitNetworkError {
+    details: String
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HermitNetworkConfig {
@@ -14,7 +18,25 @@ pub struct HermitNetworkConfig {
 	pub did_init: bool,
 }
 
-pub async fn set_lo_up() -> Result<(), Error> {
+impl From<String> for HermitNetworkError {
+    fn from(msg: String) -> Self {
+        HermitNetworkError{details: msg}
+    }
+}
+
+impl fmt::Display for HermitNetworkError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,"{}",self.details)
+    }
+}
+
+impl Error for HermitNetworkError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
+pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
 	let (connection, handle, _) = rtnetlink::new_connection().unwrap();
 	tokio::spawn(connection);
 	let mut links = handle
@@ -33,6 +55,7 @@ pub async fn set_lo_up() -> Result<(), Error> {
 pub fn undo_tap_creation(config: &HermitNetworkConfig) -> Result<(), Box<dyn std::error::Error>> {
 	let _ = run_command("ip", vec!["tuntap", "del", "tap100", "mode", "tap"]);
 	let _ = run_command("ip", vec!["link", "delete", "br0"]);
+	let _ = run_command("ip", vec!["link", "delete", "dummy0"]);
 	let _ = run_command(
 		"ip",
 		vec!["link", "set", "eth0", "address", config.mac.as_str()],
@@ -55,37 +78,37 @@ pub fn undo_tap_creation(config: &HermitNetworkConfig) -> Result<(), Box<dyn std
 	Ok(())
 }
 
-fn run_command(command: &str, args: Vec<&str>) -> String {
+fn run_command(command: &str, args: Vec<&str>) -> Result<String, Box<dyn std::error::Error>> {
 	info!("Running command {} with args {}", command, args.join(" "));
 	let ret = std::process::Command::new(command)
 		.args(&args)
 		.stdout(Stdio::piped())
 		.stderr(Stdio::piped())
-		.spawn()
-		.expect("Unable to spawn ip script process")
-		.wait_with_output()
-		.unwrap();
+		.spawn()?
+		.wait_with_output()?;
+	let stderr = String::from_utf8(ret.stderr)?;
 	if !ret.status.success() {
-		panic!(
+		return Err(
+			Box::new(HermitNetworkError::from(format!(
 			"Command {} with args {} failed! Exit code {}, stderr: {}",
 			command,
 			args.join(" "),
 			ret.status,
-			String::from_utf8(ret.stderr).unwrap()
+			stderr)))
 		);
 	}
-	let output = String::from_utf8(ret.stdout).unwrap();
+	let output = String::from_utf8(ret.stdout)?;
 	debug!("Command {} produced output {}", command, output);
-	output
+	Ok(output)
 }
 
 /**
  This function is in large parts inspired by the runnc code for Nabla Containers
  https://github.com/nabla-containers/runnc/blob/46ededdd75a03cecf05936a1a45d5d0096a2b117/nabla-lib/network/network_linux.go
 */
-pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetworkConfig, Error> {
+pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetworkConfig, Box<dyn std::error::Error>> {
 	//FIXME: This is extremely ugly
-	let mut did_init = false;
+	let mut do_init = false;
 
 	let _ = run_command(
 		//Debugging
@@ -93,18 +116,34 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		vec!["addr"],
 	);
 
+
+	let (connection, handle, _) = rtnetlink::new_connection()?;
+	tokio::spawn(connection);
+	let mut links = handle
+		.link()
+		.get()
+		.set_name_filter("tap100".to_string())
+		.execute();
+	let read_interface = if links.try_next().await?.is_none() {
+		do_init = true;
+		"eth0"
+	} else {
+		warn!("Tap device already exists in current network namespace. Trying to read configuration from dummy device...");
+		"dummy0"
+	};
+
 	let inet_str_output = run_command(
 		"/bin/sh",
 		vec![
 			"-c",
-			r#"echo `ip addr show dev eth0  | grep "inet\ " | awk '{print $2}'`"#,
+			format!("echo `ip addr show dev {}  | grep \"inet\\ \" | awk '{{print $2}}'`", read_interface).as_str()
 		],
-	);
+	)?;
 	let inet_str = inet_str_output.trim_end_matches("\n");
 
 	if inet_str.is_empty() {
-		warn!("Could not perform network setup! eth0 interface does not exist!");
-		return Err(Error::RequestFailed);
+		//warn!("Could not perform network setup! eth0 interface does not exist!");
+		return Err(Box::new(HermitNetworkError::from(format!("Could not perform network setup! {} interface does not exist!", read_interface))));
 	}
 
 	let mut inet_str_split = inet_str.split("/");
@@ -113,9 +152,9 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		"/bin/sh",
 		vec![
 			"-c",
-			r#"echo `ip addr show dev eth0  | grep "link/ether\ " | awk '{print $2}'`"#,
+			format!("echo `ip addr show dev {}  | grep \"link/ether\\ \" | awk '{{print $2}}'`", read_interface).as_str(),
 		],
-	);
+	)?;
 	let mac_str = mac_str_output.trim_end_matches("\n");
 
 	let ip_addr = inet_str_split.next().unwrap();
@@ -127,18 +166,11 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 			"-c",
 			r#"echo `ip route | grep ^default | awk '{print $3}'`"#,
 		],
-	);
+	)?;
 	let gateway = gateway_output.trim_end_matches("\n");
 
-	let (connection, handle, _) = rtnetlink::new_connection().unwrap();
-	tokio::spawn(connection);
-	let mut links = handle
-		.link()
-		.get()
-		.set_name_filter("tap100".to_string())
-		.execute();
-	if links.try_next().await?.is_none() {
-		did_init = true;
+	
+	if do_init {
 		let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
 		let _ = run_command("ip", vec!["link", "set", "dev", "tap100", "up"]);
 		let _ = run_command("ip", vec!["addr", "delete", inet_str, "dev", "eth0"]);
@@ -150,10 +182,15 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		let _ = run_command("ip", vec!["link", "set", "eth0", "master", "br0"]);
 		let _ = run_command("ip", vec!["link", "set", "tap100", "master", "br0"]);
 		let _ = run_command("ip", vec!["link", "set", "br0", "up"]);
-	} else {
-		warn!("Tap device already exists in current network namespace. Skipping configuration...");
+		// Set up dummy device
+		// This is even uglier: We need to save the addresses we obtained from eth0 somewhere in the network namespace so that
+		// future unikernel instances in the same namespace can access it. This becomes relevant for restarting Kubernetes Pods
+		// because Kubernetes / CRI-O just does spawns a new container on restart in the Pod network namespace without deleting the old one first.
+		let _ = run_command("ip", vec!["link", "add", "dummy0", "type", "dummy"]);
+		let _ = run_command("ip", vec!["link", "add", inet_str, "dev", "dummy0"]);
+		let _ = run_command("ip", vec!["link", "set", "dummy0", "address", mac_str]);
 	}
-
+	
 	info!(
 		"Found / created network setup: IP={},MASK={},GW={},MAC={}",
 		ip_addr, cidr, gateway, mac_str
@@ -167,6 +204,6 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		mask,
 		mac: mac_str.to_string(),
 		network_namespace,
-		did_init,
+		did_init: do_init,
 	})
 }

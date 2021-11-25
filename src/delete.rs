@@ -1,6 +1,5 @@
 use nix::mount::MntFlags;
 use nix::sched::CloneFlags;
-use oci_spec::runtime::LinuxNamespaceType;
 
 use crate::container::OCIContainer;
 use crate::kill;
@@ -19,7 +18,9 @@ fn reset_network_namespace(container_dir: &PathBuf) -> Result<(), Box<dyn std::e
 		let network_file = std::fs::File::open(network_file_path)?;
 		let buf_reader = BufReader::new(network_file);
 		let network_config: network::HermitNetworkConfig = serde_json::from_reader(buf_reader)?;
-		let namespace_file = File::open(PathBuf::from(network_config.network_namespace.as_ref().unwrap()))?;
+		let namespace_file = File::open(PathBuf::from(
+			network_config.network_namespace.as_ref().unwrap(),
+		))?;
 		nix::sched::setns(namespace_file.as_raw_fd(), CloneFlags::CLONE_NEWNET)?;
 
 		network::undo_tap_creation(&network_config)?;
