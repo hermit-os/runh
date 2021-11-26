@@ -4,7 +4,8 @@ use std::{convert::TryFrom, path::PathBuf, str::FromStr};
 use crate::state;
 
 pub fn kill_container(project_dir: PathBuf, id: Option<&str>, sig: Option<&str>, all: bool) {
-	let container_state = state::get_container_state(project_dir, id.unwrap());
+	let container_state = state::get_container_state(project_dir, id.unwrap())
+		.expect(format!("Could not query state for container {}", id.unwrap()).as_str());
 	if container_state.status != "created" && container_state.status != "running" {
 		panic!("Cannot send signals to non-running containers!")
 	}
