@@ -182,7 +182,7 @@ pub async fn create_tap(
 			}
 		],
 	)?;
-	let gateway_masked = gateway_output.trim_end_matches("\n");
+	let gateway = gateway_output.trim_end_matches("\n");
 
 	if do_init {
 		let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
