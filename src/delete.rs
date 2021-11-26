@@ -50,10 +50,10 @@ pub fn delete_container(project_dir: PathBuf, id: Option<&str>, force: bool) {
 				.expect(format!("Could not unmount overlay at {:?}", rootfs_overlay_dir).as_str());
 		}
 
-		match reset_network_namespace(&container_dir) {
-			Ok(_) => {}
-			Err(err) => warn!("Failed to reset network namespace! Error: {}", err),
-		}
+		// match reset_network_namespace(&container_dir) {
+		// 	Ok(_) => {}
+		// 	Err(err) => warn!("Failed to reset network namespace! Error: {}", err),
+		// }
 
 		// delete all temporary files
 		fs::remove_dir_all(container_dir).expect("Unable to delete container");
