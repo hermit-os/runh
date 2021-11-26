@@ -92,7 +92,11 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> Option<State> {
 pub fn print_container_state(project_dir: PathBuf, id: &str) {
 	println!(
 		"{}",
-		serde_json::to_string(&get_container_state(project_dir, id))
-			.expect("Could not query state. State could not be serialized!")
+		serde_json::to_string(
+			&get_container_state(project_dir, id).expect(
+				format!("Could not query state. Container {} does not exist!", id).as_str()
+			)
+		)
+		.expect("Could not query state. State could not be serialized!")
 	);
 }

@@ -383,8 +383,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			{
 				match ns.typ() {
 					runtime::LinuxNamespaceType::Network => {
-						if ns.path().is_none()
-							|| ns.path().as_ref().unwrap().as_os_str().is_empty()
+						if ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty()
 						{
 							setup_network = true;
 						} else {

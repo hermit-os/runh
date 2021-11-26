@@ -4,7 +4,7 @@ use std::{error::Error, fmt, net::Ipv4Addr, process::Stdio};
 
 #[derive(Debug)]
 struct HermitNetworkError {
-    details: String
+	details: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -19,21 +19,21 @@ pub struct HermitNetworkConfig {
 }
 
 impl From<String> for HermitNetworkError {
-    fn from(msg: String) -> Self {
-        HermitNetworkError{details: msg}
-    }
+	fn from(msg: String) -> Self {
+		HermitNetworkError { details: msg }
+	}
 }
 
 impl fmt::Display for HermitNetworkError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"{}",self.details)
-    }
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.details)
+	}
 }
 
 impl Error for HermitNetworkError {
-    fn description(&self) -> &str {
-        &self.details
-    }
+	fn description(&self) -> &str {
+		&self.details
+	}
 }
 
 pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
@@ -88,14 +88,13 @@ fn run_command(command: &str, args: Vec<&str>) -> Result<String, Box<dyn std::er
 		.wait_with_output()?;
 	let stderr = String::from_utf8(ret.stderr)?;
 	if !ret.status.success() {
-		return Err(
-			Box::new(HermitNetworkError::from(format!(
+		return Err(Box::new(HermitNetworkError::from(format!(
 			"Command {} with args {} failed! Exit code {}, stderr: {}",
 			command,
 			args.join(" "),
 			ret.status,
-			stderr)))
-		);
+			stderr
+		))));
 	}
 	let output = String::from_utf8(ret.stdout)?;
 	debug!("Command {} produced output {}", command, output);
@@ -106,7 +105,9 @@ fn run_command(command: &str, args: Vec<&str>) -> Result<String, Box<dyn std::er
  This function is in large parts inspired by the runnc code for Nabla Containers
  https://github.com/nabla-containers/runnc/blob/46ededdd75a03cecf05936a1a45d5d0096a2b117/nabla-lib/network/network_linux.go
 */
-pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetworkConfig, Box<dyn std::error::Error>> {
+pub async fn create_tap(
+	network_namespace: Option<String>,
+) -> Result<HermitNetworkConfig, Box<dyn std::error::Error>> {
 	//FIXME: This is extremely ugly
 	let mut do_init = false;
 
@@ -115,7 +116,6 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		"ip",
 		vec!["addr"],
 	);
-
 
 	let (connection, handle, _) = rtnetlink::new_connection()?;
 	tokio::spawn(connection);
@@ -136,14 +136,21 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		"/bin/sh",
 		vec![
 			"-c",
-			format!("echo `ip addr show dev {}  | grep \"inet\\ \" | awk '{{print $2}}'`", read_interface).as_str()
+			format!(
+				"echo `ip addr show dev {}  | grep \"inet\\ \" | awk '{{print $2}}'`",
+				read_interface
+			)
+			.as_str(),
 		],
 	)?;
 	let inet_str = inet_str_output.trim_end_matches("\n");
 
 	if inet_str.is_empty() {
 		//warn!("Could not perform network setup! eth0 interface does not exist!");
-		return Err(Box::new(HermitNetworkError::from(format!("Could not perform network setup! {} interface does not exist!", read_interface))));
+		return Err(Box::new(HermitNetworkError::from(format!(
+			"Could not perform network setup! {} interface does not exist!",
+			read_interface
+		))));
 	}
 
 	let mut inet_str_split = inet_str.split("/");
@@ -152,7 +159,11 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		"/bin/sh",
 		vec![
 			"-c",
-			format!("echo `ip addr show dev {}  | grep \"link/ether\\ \" | awk '{{print $2}}'`", read_interface).as_str(),
+			format!(
+				"echo `ip addr show dev {}  | grep \"link/ether\\ \" | awk '{{print $2}}'`",
+				read_interface
+			)
+			.as_str(),
 		],
 	)?;
 	let mac_str = mac_str_output.trim_end_matches("\n");
@@ -169,7 +180,6 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 	)?;
 	let gateway = gateway_output.trim_end_matches("\n");
 
-	
 	if do_init {
 		let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
 		let _ = run_command("ip", vec!["link", "set", "dev", "tap100", "up"]);
@@ -190,7 +200,7 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		let _ = run_command("ip", vec!["addr", "add", inet_str, "dev", "dummy0"]);
 		let _ = run_command("ip", vec!["link", "set", "dummy0", "address", mac_str]);
 	}
-	
+
 	info!(
 		"Found / created network setup: IP={},MASK={},GW={},MAC={}",
 		ip_addr, cidr, gateway, mac_str
