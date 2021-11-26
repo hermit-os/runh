@@ -137,9 +137,9 @@ pub async fn create_tap(
 		vec![
 			"-c",
 			if do_init {
-				"echo `ip addr show dev eth0  | grep \"inet\\ \" | awk '{{print $2}}'`"
+				"echo `ip addr show dev eth0  | grep \"inet\\ \" | awk '{print $2}'`"
 			} else {
-				"echo `ip addr show dev dummy0  | grep \"dummy0:ip\" | awk '{{print $2}}'`"
+				"echo `ip addr show dev dummy0  | grep \"dummy0:ip\" | awk '{print $2}'`"
 			}
 		],
 	)?;
@@ -178,11 +178,11 @@ pub async fn create_tap(
 			if do_init {
 				r#"echo `ip route | grep ^default | awk '{print $3}'`"#
 			} else {
-				"echo `ip addr show dev dummy0  | grep \"dummy0:gw\" | awk -F'[/ ]' '{{print $2}}'`"
+				"echo `ip addr show dev dummy0  | grep \"dummy0:gw\" | awk '{print $2}' | awk -F '/' '{print $1}'`"
 			}
 		],
 	)?;
-	let gateway = gateway_output.trim_end_matches("\n");
+	let gateway_masked = gateway_output.trim_end_matches("\n");
 
 	if do_init {
 		let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);
