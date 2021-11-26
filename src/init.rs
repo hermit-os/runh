@@ -456,49 +456,65 @@ fn init_stage(args: SetupArgs) -> isize {
 			}
 
 			let hermit_network_config = if args.config.is_hermit_container {
-				let config = tokio_runtime
-					.block_on(network::create_tap(network_namespace.clone()))
-					.expect("Could not setup hermit network!");
+				match tokio_runtime.block_on(network::create_tap(network_namespace.clone())) {
+					Ok(config) => {
+						if config.did_init && network_namespace.is_some() {
+							init_pipe
+								.write(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
+								.expect("Unable to write to init-pipe!");
 
-				if config.did_init && network_namespace.is_some() {
-					init_pipe
-						.write(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
-						.expect("Unable to write to init-pipe!");
+							let network_config_str = serde_json::to_string(&config)
+								.expect("Could not serialize hermit network config!");
 
-					let network_config_str = serde_json::to_string(&config)
-						.expect("Could not serialize hermit network config!");
+							debug!(
+								"Write hermit network config {} (lenght {}) to init-pipe!",
+								network_config_str,
+								network_config_str.len()
+							);
+							init_pipe
+								.write(&(network_config_str.len() as usize).to_le_bytes())
+								.expect("Could not write hermit env path size to init pipe!");
 
-					debug!(
-						"Write hermit network config {} (lenght {}) to init-pipe!",
-						network_config_str,
-						network_config_str.len()
-					);
-					init_pipe
-						.write(&(network_config_str.len() as usize).to_le_bytes())
-						.expect("Could not write hermit env path size to init pipe!");
-
-					init_pipe
-						.write_all(network_config_str.as_bytes())
-						.expect("Could not write hermit env path to init pipe!");
-				} else {
-					init_pipe
-						.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
-						.expect("Unable to write to init-pipe!");
+							init_pipe
+								.write_all(network_config_str.as_bytes())
+								.expect("Could not write hermit env path to init pipe!");
+						} else {
+							init_pipe
+								.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
+								.expect("Unable to write to init-pipe!");
+						}
+						let mut sig_buffer = [0u8];
+						init_pipe
+							.read_exact(&mut sig_buffer)
+							.expect("Could not read from init pipe!");
+						if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
+							panic!(
+								"Received invalid signal from runh create! Expected {:x}, got {:x}",
+								crate::consts::CREATE_ACK_NETWORK_SETUP,
+								sig_buffer[0]
+							);
+						}
+						Some(config)
+					}
+					Err(x) => {
+						warn!("Hermit network setup could not be completed: {}", x);
+						init_pipe
+							.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
+							.expect("Unable to write to init-pipe!");
+						let mut sig_buffer = [0u8];
+						init_pipe
+							.read_exact(&mut sig_buffer)
+							.expect("Could not read from init pipe!");
+						if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
+							panic!(
+								"Received invalid signal from runh create! Expected {:x}, got {:x}",
+								crate::consts::CREATE_ACK_NETWORK_SETUP,
+								sig_buffer[0]
+							);
+						}
+						None
+					}
 				}
-
-				let mut sig_buffer = [0u8];
-				init_pipe
-					.read_exact(&mut sig_buffer)
-					.expect("Could not read from init pipe!");
-				if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
-					panic!(
-						"Received invalid signal from runh create! Expected {:x}, got {:x}",
-						crate::consts::CREATE_ACK_NETWORK_SETUP,
-						sig_buffer[0]
-					);
-				}
-
-				Some(config)
 			} else {
 				None
 			};

@@ -140,7 +140,7 @@ pub async fn create_tap(
 				"echo `ip addr show dev eth0  | grep \"inet\\ \" | awk '{print $2}'`"
 			} else {
 				"echo `ip addr show dev dummy0  | grep \"dummy0:ip\" | awk '{print $2}'`"
-			}
+			},
 		],
 	)?;
 	let inet_str = inet_str_output.trim_end_matches("\n");
@@ -179,7 +179,7 @@ pub async fn create_tap(
 				r#"echo `ip route | grep ^default | awk '{print $3}'`"#
 			} else {
 				"echo `ip addr show dev dummy0  | grep \"dummy0:gw\" | awk '{print $2}' | awk -F '/' '{print $1}'`"
-			}
+			},
 		],
 	)?;
 	let gateway = gateway_output.trim_end_matches("\n");
@@ -201,8 +201,30 @@ pub async fn create_tap(
 		// future unikernel instances in the same namespace can access it. This becomes relevant for restarting Kubernetes Pods
 		// because Kubernetes / CRI-O just does spawns a new container on restart in the Pod network namespace without deleting the old one first.
 		let _ = run_command("ip", vec!["link", "add", "dummy0", "type", "dummy"]);
-		let _ = run_command("ip", vec!["addr", "add", inet_str, "label", "dummy0:ip", "dev", "dummy0"]);
-		let _ = run_command("ip", vec!["addr", "add", gateway, "label", "dummy0:gw", "dev", "dummy0"]);
+		let _ = run_command(
+			"ip",
+			vec![
+				"addr",
+				"add",
+				inet_str,
+				"label",
+				"dummy0:ip",
+				"dev",
+				"dummy0",
+			],
+		);
+		let _ = run_command(
+			"ip",
+			vec![
+				"addr",
+				"add",
+				gateway,
+				"label",
+				"dummy0:gw",
+				"dev",
+				"dummy0",
+			],
+		);
 		let _ = run_command("ip", vec!["link", "set", "dummy0", "address", mac_str]);
 	}
 
