@@ -8,7 +8,6 @@ use crate::state;
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
-use std::io::Read;
 use std::os::unix::prelude::AsRawFd;
 use std::path::PathBuf;
 
@@ -28,7 +27,7 @@ fn reset_network_namespace(container_dir: &PathBuf) -> Result<(), Box<dyn std::e
 	Ok(())
 }
 
-pub fn delete_container(mut project_dir: PathBuf, id: Option<&str>, force: bool) {
+pub fn delete_container(project_dir: PathBuf, id: Option<&str>, force: bool) {
 	if let Some(container_state) = state::get_container_state(project_dir.clone(), id.unwrap()) {
 		if container_state.status != "stopped" {
 			if !force {
