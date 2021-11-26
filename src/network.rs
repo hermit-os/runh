@@ -187,7 +187,7 @@ pub async fn create_tap(network_namespace: Option<String>) -> Result<HermitNetwo
 		// future unikernel instances in the same namespace can access it. This becomes relevant for restarting Kubernetes Pods
 		// because Kubernetes / CRI-O just does spawns a new container on restart in the Pod network namespace without deleting the old one first.
 		let _ = run_command("ip", vec!["link", "add", "dummy0", "type", "dummy"]);
-		let _ = run_command("ip", vec!["link", "add", inet_str, "dev", "dummy0"]);
+		let _ = run_command("ip", vec!["addr", "add", inet_str, "dev", "dummy0"]);
 		let _ = run_command("ip", vec!["link", "set", "dummy0", "address", mac_str]);
 	}
 	
