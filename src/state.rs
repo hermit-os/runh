@@ -15,13 +15,14 @@ pub struct State {
 	pub annotations: Option<HashMap<String, String>>,
 }
 
-pub fn get_container_state(project_dir: PathBuf, id: &str) -> State {
+pub fn get_container_state(project_dir: PathBuf, id: &str) -> Option<State> {
 	let container_dir = project_dir.join(id);
 	if !container_dir.is_dir() {
-		panic!(
+		warn!(
 			"Could not query state. Container {} does not exist in project dir!",
 			id
 		);
+		return None;
 	}
 
 	let exec_fifo = container_dir.join("exec.fifo");
@@ -55,7 +56,7 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> State {
 	let container: OCIContainer = serde_json::from_reader(BufReader::new(container_file))
 		.expect("Could not query state. Container file could not be parsed!");
 
-	State {
+	Some(State {
 		version: String::from(consts::OCI_STATE_VERSION),
 		id: id.to_string(),
 		status: String::from(if let Some(pid_int) = pid {
@@ -85,7 +86,7 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> State {
 		pid,
 		bundle,
 		annotations: container.spec().annotations().clone(),
-	}
+	})
 }
 
 pub fn print_container_state(project_dir: PathBuf, id: &str) {
