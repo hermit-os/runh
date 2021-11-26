@@ -681,27 +681,34 @@ fn init_stage(args: SetupArgs) -> isize {
 					"-initrd",
 					app,
 					"-cpu",
-					"qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand",
-					"-netdev",
-					"tap,id=net0,ifname=tap100,script=no,downscript=no,vhost=on",
-					"-device",
-					format!(
-						"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
-						hermit_network_config.as_ref().unwrap().mac
-					)
-					.as_str(),
-					"-append",
+					"qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand"
 				]
 				.iter()
 				.map(|s| s.to_string())
 				.collect();
 
-				let mut args_string = format!(
-					"-ip {} -gateway {} -mask {}",
-					hermit_network_config.as_ref().unwrap().ip.to_string(),
-					hermit_network_config.as_ref().unwrap().gateway.to_string(),
-					hermit_network_config.as_ref().unwrap().mask.to_string()
-				);
+				if let Some(network_config) = hermit_network_config.as_ref() {
+					exec_args.push("-netdev".to_string());
+					exec_args.push("tap,id=net0,ifname=tap100,script=no,downscript=no,vhost=on".to_string());
+					exec_args.push("-device".to_string());
+					exec_args.push(format!(
+						"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
+						network_config.mac
+					));
+				}
+
+				exec_args.push("-append".to_string());
+
+				let mut args_string = "".to_string();
+
+				if let Some(network_config) = hermit_network_config.as_ref() {
+					args_string = format!(
+						"-ip {} -gateway {} -mask {}",
+						network_config.ip.to_string(),
+						network_config.gateway.to_string(),
+						network_config.mask.to_string()
+					);
+				}
 
 				if let Some(application_args) = args
 					.config
