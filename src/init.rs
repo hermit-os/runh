@@ -667,6 +667,14 @@ fn init_stage(args: SetupArgs) -> isize {
 
 				exec_args = vec![
 					"qemu-system-x86_64",
+					"-M",
+					"microvm,x-option-roms=off,pit=off,pic=off,rtc=on,auto-kernel-cmdline=off",
+					"-global",
+					"virtio-mmio.force-legacy=off",
+					"-nodefaults",
+					"-no-user-config",
+					"-device",
+					"isa-debug-exit,iobase=0xf4,iosize=0x04",
 					"-enable-kvm",
 					"-display",
 					"none",
@@ -692,7 +700,7 @@ fn init_stage(args: SetupArgs) -> isize {
 					exec_args.push("tap,id=net0,ifname=tap100,script=no,downscript=no,vhost=on".to_string());
 					exec_args.push("-device".to_string());
 					exec_args.push(format!(
-						"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
+						"virtio-net-device,netdev=net0,mac={}",
 						network_config.mac
 					));
 				}
