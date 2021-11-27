@@ -667,12 +667,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 				exec_args = vec![
 					"qemu-system-x86_64",
-					"-M",
-					"microvm,x-option-roms=off,pit=off,pic=off,rtc=on,auto-kernel-cmdline=off",
-					"-global",
-					"virtio-mmio.force-legacy=off",
-					"-nodefaults",
-					"-no-user-config",
+					"-enable-kvm",
 					"-display",
 					"none",
 					"-smp",
@@ -685,11 +680,8 @@ fn init_stage(args: SetupArgs) -> isize {
 					kernel,
 					"-initrd",
 					app,
-					"-enable-kvm",
 					"-cpu",
-					"host",
-					"-device",
-					"isa-debug-exit,iobase=0xf4,iosize=0x04",
+					"qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand",
 				]
 				.iter()
 				.map(|s| s.to_string())
@@ -697,10 +689,11 @@ fn init_stage(args: SetupArgs) -> isize {
 
 				if let Some(network_config) = hermit_network_config.as_ref() {
 					exec_args.push("-netdev".to_string());
-					exec_args.push("tap,id=tap100,ifname=tap100,script=no,downscript=no".to_string());
+					exec_args
+						.push("tap,id=tap100,ifname=tap100,script=no,downscript=no".to_string());
 					exec_args.push("-device".to_string());
 					exec_args.push(format!(
-						"virtio-net-device,netdev=tap100,mac={}",
+						"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
 						network_config.mac
 					));
 				}
