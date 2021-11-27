@@ -673,9 +673,6 @@ fn init_stage(args: SetupArgs) -> isize {
 					"virtio-mmio.force-legacy=off",
 					"-nodefaults",
 					"-no-user-config",
-					"-device",
-					"isa-debug-exit,iobase=0xf4,iosize=0x04",
-					"-enable-kvm",
 					"-display",
 					"none",
 					"-smp",
@@ -688,8 +685,11 @@ fn init_stage(args: SetupArgs) -> isize {
 					kernel,
 					"-initrd",
 					app,
+					"-enable-kvm",
 					"-cpu",
-					"qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand"
+					"host",
+					"-device",
+					"isa-debug-exit,iobase=0xf4,iosize=0x04",
 				]
 				.iter()
 				.map(|s| s.to_string())
@@ -697,10 +697,10 @@ fn init_stage(args: SetupArgs) -> isize {
 
 				if let Some(network_config) = hermit_network_config.as_ref() {
 					exec_args.push("-netdev".to_string());
-					exec_args.push("tap,id=net0,ifname=tap100,script=no,downscript=no,vhost=on".to_string());
+					exec_args.push("tap,id=tap100,ifname=tap100,script=no,downscript=no".to_string());
 					exec_args.push("-device".to_string());
 					exec_args.push(format!(
-						"virtio-net-device,netdev=net0,mac={}",
+						"virtio-net-device,netdev=tap100,mac={}",
 						network_config.mac
 					));
 				}
