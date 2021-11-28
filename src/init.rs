@@ -690,7 +690,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				if let Some(network_config) = hermit_network_config.as_ref() {
 					exec_args.push("-netdev".to_string());
 					exec_args
-						.push("tap,id=tap100,ifname=tap100,script=no,downscript=no".to_string());
+						.push("tap,id=net0,ifname=tap100,script=no,downscript=no".to_string());
 					exec_args.push("-device".to_string());
 					exec_args.push(format!(
 						"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
