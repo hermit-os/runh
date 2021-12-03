@@ -114,7 +114,7 @@ pub fn get_qemu_args(
 	}
 
 	if let Some(application_args) = app_args.get(1..) {
-		args_string = format!("{} -- {}", args_string, application_args.join(" "));
+		args_string = format!("-freq 1197 {} -- {}", args_string, application_args.join(" "));
 	}
 	exec_args.push(args_string);
 
