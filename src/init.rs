@@ -9,7 +9,7 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
-use crate::{console, devices, mounts};
+use crate::{console, devices, hermit, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
@@ -634,18 +634,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			// - Apply capabilities
 
 			//Verify the args[0] executable exists
-			let mut exec_args = args
-				.config
-				.spec
-				.process()
-				.as_ref()
-				.unwrap()
-				.args()
-				.as_ref()
-				.unwrap()
-				.clone();
-
-			if args.config.is_hermit_container {
+			let exec_args = if args.config.is_hermit_container {
 				let app = args
 					.config
 					.spec
@@ -664,55 +653,22 @@ fn init_stage(args: SetupArgs) -> isize {
 					.to_owned();
 				let kernel_path = app_root.join("rusty-loader");
 				let kernel = kernel_path.as_os_str().to_str().unwrap();
-
-				exec_args = vec![
-					"qemu-system-x86_64",
-					"-enable-kvm",
-					"-display",
-					"none",
-					"-smp",
-					"1",
-					"-m",
-					"1G",
-					"-serial",
-					"stdio",
-					"-kernel",
+				hermit::get_qemu_args(
 					kernel,
-					"-initrd",
 					app,
-					"-cpu",
-					"qemu64,apic,fsgsbase,rdtscp,xsave,fxsr,rdrand",
-				]
-				.iter()
-				.map(|s| s.to_string())
-				.collect();
-
-				if let Some(network_config) = hermit_network_config.as_ref() {
-					exec_args.push("-netdev".to_string());
-					exec_args
-						.push("tap,id=net0,ifname=tap100,script=no,downscript=no".to_string());
-					exec_args.push("-device".to_string());
-					exec_args.push(format!(
-						"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
-						network_config.mac
-					));
-				}
-
-				exec_args.push("-append".to_string());
-
-				let mut args_string = "".to_string();
-
-				if let Some(network_config) = hermit_network_config.as_ref() {
-					args_string = format!(
-						"-ip {} -gateway {} -mask {}",
-						network_config.ip.to_string(),
-						network_config.gateway.to_string(),
-						network_config.mask.to_string()
-					);
-				}
-
-				if let Some(application_args) = args
-					.config
+					&hermit_network_config,
+					args.config
+						.spec
+						.process()
+						.as_ref()
+						.unwrap()
+						.args()
+						.as_ref()
+						.unwrap(),
+					true
+				)
+			} else {
+				args.config
 					.spec
 					.process()
 					.as_ref()
@@ -720,12 +676,8 @@ fn init_stage(args: SetupArgs) -> isize {
 					.args()
 					.as_ref()
 					.unwrap()
-					.get(1..)
-				{
-					args_string = format!("{} -- {}", args_string, application_args.join(" "));
-				}
-				exec_args.push(args_string);
-			}
+					.clone()
+			};
 
 			let exec_path_rel = PathBuf::from(
 				exec_args

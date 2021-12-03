@@ -1,3 +1,4 @@
+use crate::network;
 use goblin::elf;
 use goblin::elf64::header::EI_OSABI;
 use std::{fs, path::PathBuf};
@@ -34,3 +35,88 @@ pub fn prepare_environment(rootfs: &PathBuf, project_dir: &PathBuf) {
 }
 
 pub fn setup_environment(rootfs: &PathBuf) {}
+
+pub fn get_qemu_args(
+	kernel: &str,
+	app: &str,
+	netconf: &Option<network::HermitNetworkConfig>,
+	app_args: &Vec<String>,
+	micro_vm: bool,
+) -> Vec<String> {
+	let mut exec_args: Vec<String> = vec![
+		"qemu-system-x86_64",
+		"-enable-kvm",
+		"-display",
+		"none",
+		"-smp",
+		"1",
+		"-m",
+		"1G",
+		"-serial",
+		"stdio",
+		"-kernel",
+		kernel,
+		"-initrd",
+		app,
+		"-cpu",
+		"host",
+	]
+	.iter()
+	.map(|s| s.to_string())
+	.collect();
+
+	if micro_vm {
+		exec_args.append(
+			&mut vec![
+				"-M",
+				"microvm,x-option-roms=off,pit=off,pic=off,rtc=on,auto-kernel-cmdline=off",
+				"-global",
+				"virtio-mmio.force-legacy=off",
+				"-nodefaults",
+				"-no-user-config",
+				"-device",
+				"isa-debug-exit,iobase=0xf4,iosize=0x04",
+			]
+			.iter()
+			.map(|s| s.to_string())
+			.collect(),
+		);
+	}
+
+	if let Some(network_config) = netconf.as_ref() {
+		exec_args.push("-netdev".to_string());
+		exec_args.push("tap,id=net0,ifname=tap100,script=no,downscript=no".to_string());
+		exec_args.push("-device".to_string());
+		exec_args.push(if micro_vm {
+			format!(
+				"virtio-net-device,netdev=net0,mac={}",
+				network_config.mac
+			)
+		} else {
+			format!(
+				"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
+				network_config.mac
+			)
+		});
+	}
+
+	exec_args.push("-append".to_string());
+
+	let mut args_string = "".to_string();
+
+	if let Some(network_config) = netconf.as_ref() {
+		args_string = format!(
+			"-ip {} -gateway {} -mask {}",
+			network_config.ip.to_string(),
+			network_config.gateway.to_string(),
+			network_config.mask.to_string()
+		);
+	}
+
+	if let Some(application_args) = app_args.get(1..) {
+		args_string = format!("{} -- {}", args_string, application_args.join(" "));
+	}
+	exec_args.push(args_string);
+
+	exec_args
+}
