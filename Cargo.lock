@@ -876,13 +876,15 @@ dependencies = [
 
 [[package]]
 name = "oci-spec"
-version = "0.2.8"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eb445556ec119b785f90e1705c6b6aa684ccc2afee6c43d4a9fa4148d420e37"
+checksum = "6b409d52fff741f330914aa6b8ab73e9113607bb13fbc09f95cdb04d16c8dd5d"
 dependencies = [
+ "derive_builder",
+ "getset",
  "serde",
- "serde_derive",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
