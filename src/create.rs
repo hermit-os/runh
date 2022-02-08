@@ -1,6 +1,5 @@
 use crate::hermit;
 use crate::mounts;
-use crate::paths;
 use crate::rootfs;
 use crate::state;
 use command_fds::{CommandFdExt, FdMapping};
@@ -32,6 +31,8 @@ pub fn create_container(
 	pidfile: Option<&str>,
 	console_socket: Option<&str>,
 	hermit_env: Option<&str>,
+	debug_config: bool,
+	child_log_level: &str,
 ) {
 	let _ = std::fs::create_dir(&project_dir);
 
@@ -64,21 +65,16 @@ pub fn create_container(
 	.expect("Unable to symlink bundle into project dir!");
 
 	// write container to root dir
-	let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap()));
-	let mut file = OpenOptions::new()
-		.read(true)
-		.write(true)
-		.create_new(true)
-		.open(&spec_path_backup)
-		.expect("Unable to write spec to backup file!");
-	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
-		.unwrap();
-
-	debug!(
-		"Create container with uid {}, gid {}",
-		container.spec().process().as_ref().unwrap().user().uid(),
-		container.spec().process().as_ref().unwrap().user().gid()
-	);
+	if debug_config {
+		let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap()));
+		let mut file = OpenOptions::new()
+			.write(true)
+			.create(true)
+			.open(&spec_path_backup)
+			.expect("Unable to write spec to backup file!");
+		file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
+			.unwrap();
+	}
 
 	// find rootfs
 	let bundle_rootfs_path = PathBuf::from(&container.spec().root().as_ref().unwrap().path());
@@ -256,7 +252,7 @@ pub fn create_container(
 
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
-		.arg("debug") //TODO: Start child process with the same log level the parent was called with
+		.arg(child_log_level)
 		.arg("--log-format")
 		.arg("json")
 		.arg("init")

@@ -64,6 +64,7 @@ fn parse_matches(app: App) {
 			} else {
 				matches.value_of("LOG_LEVEL")
 			},
+			matches.is_present("DEBUG_LOG"),
 		);
 		print_container_state(project_dir, sub_m.value_of("CONTAINER_ID").unwrap());
 		return;
@@ -75,6 +76,7 @@ fn parse_matches(app: App) {
 		matches.value_of("LOG_PATH"),
 		matches.value_of("LOG_FORMAT"),
 		matches.value_of("LOG_LEVEL"),
+		matches.is_present("DEBUG_LOG"),
 	);
 	info!("Welcome to runh {}", crate_version!());
 	debug!(
@@ -91,6 +93,8 @@ fn parse_matches(app: App) {
 			sub_m.value_of("PID_FILE"),
 			sub_m.value_of("CONSOLE_SOCKET"),
 			matches.value_of("HERMIT_ENV_PATH"),
+			matches.is_present("DEBUG_CONFIG"),
+			matches.value_of("LOG_LEVEL").unwrap(),
 		),
 		("delete", Some(sub_m)) => delete_container(
 			project_dir,
@@ -146,7 +150,7 @@ pub fn main() {
 			Arg::with_name("LOG_LEVEL")
 				.long("log-level")
 				.short("l")
-				.default_value("debug")
+				.default_value("info")
 				.possible_values(&["trace", "debug", "info", "warn", "error", "off"])
 				.help("The logging level of the application."),
 		)
@@ -162,6 +166,18 @@ pub fn main() {
 				.default_value("text")
 				.possible_values(&["text", "json"])
 				.help("set the log format"),
+		)
+		.arg(
+			Arg::with_name("DEBUG_LOG")
+				.long("debug-log")
+				.takes_value(false)
+				.help("Write out any logs to the runh root directory in addition to the specified log path.")
+		)
+		.arg(
+			Arg::with_name("DEBUG_CONFIG")
+				.long("debug-config")
+				.takes_value(false)
+				.help("Copy the container configuration into the runh root directory for debugging.")
 		)
 		.arg(
 			Arg::with_name("SYSTEMD_CGROUP")

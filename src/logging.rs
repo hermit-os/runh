@@ -98,6 +98,7 @@ pub fn init(
 	log_path: Option<&str>,
 	log_format: Option<&str>,
 	log_level: Option<&str>,
+	internal_log: bool,
 ) {
 	let mut has_log_pipe = false;
 	let log_file = log_path
@@ -118,7 +119,7 @@ pub fn init(
 
 	let logger: RunhLogger<File> = RunhLogger {
 		log_file: Mutex::new(log_file),
-		log_file_internal: Mutex::new(if has_log_pipe {
+		log_file_internal: Mutex::new(if has_log_pipe || !internal_log {
 			None
 		} else {
 			Some(
