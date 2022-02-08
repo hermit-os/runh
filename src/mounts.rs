@@ -4,7 +4,7 @@ use std::{
 	fs::{DirBuilder, File, OpenOptions},
 	os::unix::{
 		fs::DirBuilderExt,
-		prelude::{AsRawFd, MetadataExt, OpenOptionsExt},
+		prelude::{AsRawFd, OpenOptionsExt},
 	},
 	path::PathBuf,
 };
@@ -313,7 +313,7 @@ pub fn mount_with_flags(
 	mount_dest: &PathBuf,
 	full_dest: &PathBuf,
 	mut options: MountOptions,
-	label: Option<&String>,
+	_label: Option<&String>,
 ) {
 	// TODO: Format mount label with data string
 	let procfd = open_trough_procfd(device, mount_dest, full_dest, &mut options);

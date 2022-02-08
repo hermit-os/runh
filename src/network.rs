@@ -52,31 +52,31 @@ pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
 	Ok(())
 }
 
-pub fn undo_tap_creation(config: &HermitNetworkConfig) -> Result<(), Box<dyn std::error::Error>> {
-	let _ = run_command("ip", vec!["tuntap", "del", "tap100", "mode", "tap"]);
-	let _ = run_command("ip", vec!["link", "delete", "br0"]);
-	let _ = run_command("ip", vec!["link", "delete", "dummy0"]);
-	let _ = run_command(
-		"ip",
-		vec!["link", "set", "eth0", "address", config.mac.as_str()],
-	);
-	let _ = run_command(
-		"ip",
-		vec![
-			"addr",
-			"add",
-			format!(
-				"{}/{}",
-				config.ip.to_string(),
-				u32::from(config.mask).trailing_zeros()
-			)
-			.as_str(),
-			"dev",
-			"eth0",
-		],
-	);
-	Ok(())
-}
+// pub fn undo_tap_creation(config: &HermitNetworkConfig) -> Result<(), Box<dyn std::error::Error>> {
+// 	let _ = run_command("ip", vec!["tuntap", "del", "tap100", "mode", "tap"]);
+// 	let _ = run_command("ip", vec!["link", "delete", "br0"]);
+// 	let _ = run_command("ip", vec!["link", "delete", "dummy0"]);
+// 	let _ = run_command(
+// 		"ip",
+// 		vec!["link", "set", "eth0", "address", config.mac.as_str()],
+// 	);
+// 	let _ = run_command(
+// 		"ip",
+// 		vec![
+// 			"addr",
+// 			"add",
+// 			format!(
+// 				"{}/{}",
+// 				config.ip.to_string(),
+// 				u32::from(config.mask).trailing_zeros()
+// 			)
+// 			.as_str(),
+// 			"dev",
+// 			"eth0",
+// 		],
+// 	);
+// 	Ok(())
+// }
 
 fn run_command(command: &str, args: Vec<&str>) -> Result<String, Box<dyn std::error::Error>> {
 	info!("Running command {} with args {}", command, args.join(" "));

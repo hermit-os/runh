@@ -18,20 +18,21 @@ use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime;
 use oci_spec::runtime::Spec;
 
-#[derive(Clone, Copy, Debug, Default)]
-struct SocketPair {
-	parent: RawFd,
-	child: RawFd,
-}
+// #[derive(Clone, Copy, Debug, Default)]
+// struct SocketPair {
+// 	parent: RawFd,
+// 	child: RawFd,
+// }
 
-impl From<(i32, i32)> for SocketPair {
-	fn from(tuple: (i32, i32)) -> Self {
-		SocketPair {
-			parent: RawFd::from(tuple.0),
-			child: RawFd::from(tuple.1),
-		}
-	}
-}
+// impl From<(i32, i32)> for SocketPair {
+// 	fn from(tuple: (i32, i32)) -> Self {
+// 		SocketPair {
+// 			parent: RawFd::from(tuple.0),
+// 			child: RawFd::from(tuple.1),
+// 		}
+// 	}
+// }
+
 #[derive(Clone, Copy, Debug)]
 enum InitStage {
 	PARENT,
