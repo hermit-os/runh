@@ -90,6 +90,7 @@ fn parse_matches(app: App) {
 			sub_m.value_of("BUNDLE"),
 			sub_m.value_of("PID_FILE"),
 			sub_m.value_of("CONSOLE_SOCKET"),
+			matches.value_of("HERMIT_ENV_PATH"),
 		),
 		("delete", Some(sub_m)) => delete_container(
 			project_dir,
@@ -167,6 +168,12 @@ pub fn main() {
 				.long("systemd-cgroup")
 				.takes_value(false)
 				.help("Currently unimplemented!")
+		)
+		.arg(
+			Arg::with_name("HERMIT_ENV_PATH")
+				.long("hermit-env")
+				.takes_value(true)
+				.help("Path to the hermit-environment. Defaults to <runh-root-dir>/hermit")
 		)
 		.subcommand(
 			SubCommand::with_name("spec")
