@@ -16,12 +16,15 @@ pub fn is_hermit_app(path: &PathBuf) -> bool {
 
 pub fn create_environment(path: &PathBuf) {}
 
-pub fn get_environment_path(project_dir: &PathBuf) -> PathBuf {
-	PathBuf::from("/global/projects/runh/hermit")
+pub fn get_environment_path(project_dir: &PathBuf, hermit_env_path: &Option<&str>) -> PathBuf {
+	match hermit_env_path {
+		Some(s) => PathBuf::from(s),
+		None => project_dir.join("hermit"),
+	}
 }
 
-pub fn prepare_environment(rootfs: &PathBuf, project_dir: &PathBuf) {
-	let environment_path = get_environment_path(project_dir);
+pub fn prepare_environment(project_dir: &PathBuf, hermit_env_path: &Option<&str>) {
+	let environment_path = get_environment_path(project_dir, hermit_env_path);
 	if !environment_path.exists() {
 		create_environment(&environment_path);
 	} else if !environment_path.is_dir() {
@@ -30,11 +33,7 @@ pub fn prepare_environment(rootfs: &PathBuf, project_dir: &PathBuf) {
 			&environment_path
 		);
 	}
-
-	let hermit_path = rootfs.join("hermit");
 }
-
-pub fn setup_environment(rootfs: &PathBuf) {}
 
 pub fn get_qemu_args(
 	kernel: &str,
@@ -88,10 +87,7 @@ pub fn get_qemu_args(
 		exec_args.push("tap,id=net0,ifname=tap100,script=no,downscript=no".to_string());
 		exec_args.push("-device".to_string());
 		exec_args.push(if micro_vm {
-			format!(
-				"virtio-net-device,netdev=net0,mac={}",
-				network_config.mac
-			)
+			format!("virtio-net-device,netdev=net0,mac={}", network_config.mac)
 		} else {
 			format!(
 				"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
@@ -114,7 +110,11 @@ pub fn get_qemu_args(
 	}
 
 	if let Some(application_args) = app_args.get(1..) {
-		args_string = format!("-freq 1197 {} -- {}", args_string, application_args.join(" "));
+		args_string = format!(
+			"-freq 1197 {} -- {}",
+			args_string,
+			application_args.join(" ")
+		);
 	}
 	exec_args.push(args_string);
 

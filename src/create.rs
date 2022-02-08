@@ -31,6 +31,7 @@ pub fn create_container(
 	bundle: Option<&str>,
 	pidfile: Option<&str>,
 	console_socket: Option<&str>,
+	hermit_env: Option<&str>,
 ) {
 	let _ = std::fs::create_dir(&project_dir);
 
@@ -113,7 +114,7 @@ pub fn create_container(
 	if is_hermit_container {
 		info!("Detected RustyHermit executable. Creating container in hermit mode!");
 		//Setup hermit environment
-		hermit::prepare_environment(&bundle_rootfs_path_abs, &project_dir);
+		hermit::prepare_environment(&project_dir, &hermit_env);
 	}
 
 	//Setup exec fifo
@@ -184,7 +185,7 @@ pub fn create_container(
 		mounts::create_all_dirs(&overlay_mergeddir);
 		let datastr = format!(
 			"lowerdir={}:{},upperdir={},workdir={}",
-			hermit::get_environment_path(&project_dir)
+			hermit::get_environment_path(&project_dir, &hermit_env)
 				.as_os_str()
 				.to_str()
 				.unwrap(),

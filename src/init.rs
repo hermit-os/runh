@@ -665,7 +665,7 @@ fn init_stage(args: SetupArgs) -> isize {
 						.args()
 						.as_ref()
 						.unwrap(),
-					true
+					true,
 				)
 			} else {
 				args.config
