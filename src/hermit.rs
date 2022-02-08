@@ -14,7 +14,9 @@ pub fn is_hermit_app(path: &PathBuf) -> bool {
 	}
 }
 
-pub fn create_environment(path: &PathBuf) {}
+pub fn create_environment(_path: &PathBuf) {
+	//TODO
+}
 
 pub fn get_environment_path(project_dir: &PathBuf, hermit_env_path: &Option<&str>) -> PathBuf {
 	match hermit_env_path {
