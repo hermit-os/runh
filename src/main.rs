@@ -85,7 +85,14 @@ fn parse_matches(app: App) {
 	);
 
 	match matches.subcommand() {
-		("spec", Some(sub_m)) => create_spec(sub_m.value_of("BUNDLE")),
+		("spec", Some(sub_m)) => create_spec(
+			sub_m.value_of("BUNDLE"),
+			sub_m
+				.values_of("ARGS")
+				.unwrap()
+				.map(|a| a.to_string())
+				.collect(),
+		),
 		("create", Some(sub_m)) => create_container(
 			project_dir,
 			sub_m.value_of("CONTAINER_ID"),
@@ -202,6 +209,15 @@ pub fn main() {
 						.required(true)
 						.takes_value(true)
 						.help("path to the root of the bundle directory"),
+				)
+				.arg(
+					Arg::with_name("ARGS")
+						.long("args")
+						.multiple(true)
+						.short("a")
+						.required(true)
+						.takes_value(true)
+						.help("container arguments"),
 				),
 		)
 		.subcommand(
