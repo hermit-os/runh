@@ -11,12 +11,9 @@ on:
     - cron: '0 0 * * 6'
 
 jobs:
-  build:
-    name: Test
+  test:
+    name: Setup, build and Test
     runs-on: ${{ matrix.os }}
-    # these tests based on the nightly compiler, which can be broken
-    # consequently, we continue on an error
-    #continue-on-error: true
 
     strategy:
       matrix:
@@ -25,8 +22,48 @@ jobs:
           - os: ubuntu-latest
             rust: 'stable'
             targets: 'x86_64-unknown-linux-gnu'
-
     steps:
+    - name: Install CRI-O
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y curl gnupg
+        export OS=xUbuntu_20.04
+        export VERSION=1.23
+        echo "deb [signed-by=/usr/share/keyrings/libcontainers-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+        echo "deb [signed-by=/usr/share/keyrings/libcontainers-crio-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:$VERSION.list
+        mkdir -p /usr/share/keyrings
+        curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/Release.key | gpg --dearmor -o /usr/share/keyrings/libcontainers-archive-keyring.gpg
+        curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/Release.key | gpg --dearmor -o /usr/share/keyrings/libcontainers-crio-archive-keyring.gpg
+        apt-get update
+        apt-get install -y cri-o cri-o-runc
+        systemctl start crio
+    - name: Install crictl
+      run: |
+        export VERSION="v1.23.0"
+        curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz
+        sudo tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
+        rm -f crictl-$VERSION-linux-amd64.tar.gz
+    - name: Pull Hermit environment
+      run: |
+        docker export $(docker create docker.io/library/hello-world:latest) > hermit-env.tar
+        mkdir -p hermit-env
+        tar -xf hermit-env.tar -C hermit-env
+        sudo mkdir -p /run/runh
+        sudo ln -s $PWD/hermit-env /run/runh/hermit
+    - name: Pull container image
+      run: |
+        sudo crictl pull docker.io/library/hello-world:latest
+        docker export $(docker create hello-world:latest) > runh-image.tar
+        mkdir -p /home/runner/runh-image/rootfs
+        tar -xf runh-image.tar -C /home/runner/runh-image/rootfs
+    - name: Create CRI configurations
+      run: |
+        echo '{ "metadata": { "name": "hermit-sandbox", "namespace": "default", "attempt": 1, "uid": "hdishd83djaidwnduwk28bcsb" }, "log_directory": "/tmp", "linux": { } }' \
+            > /home/runner/pod.json
+        echo '{ "metadata": { "name": "httpd" }, "image":{ "image": "docker.io/library/hello-world:latest" }, "log_path":"httpd.log", "linux": { } }' \
+            > /home/runner/container.json
     - uses: hecrj/setup-rust-action@v1
       with: 
          rust-version: ${{ matrix.rust }}
@@ -35,26 +72,67 @@ jobs:
     - uses: actions/checkout@v2
       with:
          lfs: true
+    - name: Restore Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: /home/runner/.cargo
+        key: cargo-cache
+    # - name: Restore runh target cache
+    #   uses: actions/cache@v2
+    #   with:
+    #     path: ${{ github.workspace }}/target
+    #     key: runh-target-cache
     - name: Check Cargo availability
       run: cargo --version
-    - name: Building runh
-      run:
-         cargo build
-    - name: Pull container image
+    - name: Build runh
       run: |
-         mkdir -p data
-         mkdir -p data/rootfs
-         sudo target/debug/runh -l debug pull -b data/rootfs/ registry.git.rwth-aachen.de/acs/public/hermitcore/rusty-hermit/demo
-    - name: Create container specification
+        cargo install --path .
+        sudo ln -s /home/runner/.cargo/bin/runh /bin/runh
+    - name: Setup runh with Docker
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-         target/debug/runh -l debug spec --bundle data/
-         sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
-    - name: Create container
-      run:
-         sudo target/debug/runh -l debug create -b data hello
-    - name: Start container
-      run:
-         sudo target/debug/runh -l debug start hello
-    - name: Delete container
-      run:
-         sudo target/debug/runh -l debug delete hello
+        sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh" } },/g' /etc/docker/daemon.json
+        >&2 cat /etc/docker/daemon.json
+        systemctl restart docker || systemctl status docker
+    - name: Set up runh with CRI-O
+      id: runh-crio-setup
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: |
+        sed -i 's/default_runtime = "runc"/default_runtime = "runh"/g' /etc/crio/crio.conf
+        sed -i 's/\[crio.runtime.runtimes\]/\[crio.runtime.runtimes\]\n\[crio.runtime.runtimes.runh\]\nruntime_path = "\/home\/runner\/.cargo\/bin\/runh"\nruntime_type = "oci"\nruntime_root = "\/run\/runh"/g' /etc/crio/crio.conf
+        systemctl restart crio || systemctl status crio
+        >&2 cat /etc/crio/crio.conf
+    - name: Test runh standalone
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
+      run: |
+        cd /home/runner/runh-image
+        runh --root /run/runh spec --bundle . --args /hello
+        runh --root /run/runh -l debug create  --bundle . runh-container
+        runh --root /run/runh -l debug start  runh-container
+        sleep 5
+        runh --root /run/runh -l debug delete runh-container
+    - name: Test runh with CRIO
+      if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: |
+         crictl runp /home/runner/pod.json > pod.id
+         export PODID=$(cat pod.id)        
+         crictl create $PODID /home/runner/container.json /home/runner/pod.json > container.id
+         export CONTAINERID=$(cat container.id)
+         crictl start $CONTAINERID
+         sleep 5
+         crictl logs $CONTAINERID
+         crictl stop $CONTAINERID
+         crictl rm $CONTAINERID
+         crictl stopp $PODID
+         crictl rmp $PODID
+    - name: Test runh with Docker
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
+      run: |
+         docker run --runtime=runh -it -d -p 9975:9975 docker.io/library/hello-world:latest > container.id
+         export CONTAINERID=$(cat container.id)
+         sleep 2
+         docker logs $CONTAINERID
+         docker stop $CONTAINERID
