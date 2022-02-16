@@ -256,6 +256,7 @@ pub fn create_container(
 		.arg("--log-format")
 		.arg("json")
 		.arg("init")
+		.stdin(std::process::Stdio::null())
 		.fd_mappings(child_fd_mappings)
 		.expect("Unable to pass fifo fd to child!")
 		.env("RUNH_FIFOFD", "3")
