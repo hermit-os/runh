@@ -1,6 +1,6 @@
 status = [
-  "Setup, build and test (ubuntu-latest)",
-  "Format check (ubuntu-latest)",
+  "Setup, build and test",
+  "Format check",
 ]
 delete_merged_branches = true
 timeout_sec = 3600
