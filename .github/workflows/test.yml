@@ -13,15 +13,8 @@ on:
 jobs:
   test:
     name: Setup, build and test
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        include:
-          - os: ubuntu-latest
-            rust: 'stable'
-            targets: 'x86_64-unknown-linux-gnu'
     steps:
     - name: Install CRI-O
       shell: sudo bash --noprofile --norc -eo pipefail {0}
