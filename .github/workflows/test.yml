@@ -12,7 +12,7 @@ on:
 
 jobs:
   test:
-    name: Setup, build and Test
+    name: Setup, build and test
     runs-on: ${{ matrix.os }}
 
     strategy:
