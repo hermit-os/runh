@@ -13,22 +13,11 @@ jobs:
     name: Format check
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        include:
-          - os: ubuntu-latest
-            rust: 'stable'
-            components: 'rustfmt'
-            targets: 'x86_64-unknown-linux-gnu'
-
-
     steps:
       - uses: hecrj/setup-rust-action@v1
         with:
-          rust-version: ${{ matrix.rust }}
-          components: ${{ matrix.components || '' }}
-          targets: ${{ matrix.targets || '' }}
+          rust-version: stable
+          components: rustfmt
       - name: Checkout
         uses: actions/checkout@v2
       - name: Check Formatting
