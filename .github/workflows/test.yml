@@ -42,7 +42,6 @@ jobs:
       run: |
         docker pull ghcr.io/hermitcore/hermit_env:latest
         docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
-        mkdir -p hermit-env
         sudo mkdir -p /run/runh/hermit
         sudo tar -xf hermit-env.tar -C /run/runh/hermit
     - name: Pull container image
@@ -89,7 +88,6 @@ jobs:
         >&2 cat /etc/docker/daemon.json
         systemctl restart docker || systemctl status docker
     - name: Check Docker runtime
-      shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: docker info|grep -i runtime
     - name: Set up runh with CRI-O
       id: runh-crio-setup
