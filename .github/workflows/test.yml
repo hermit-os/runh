@@ -17,6 +17,7 @@ jobs:
 
     steps:
     - name: Install Qemu
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
         apt-get update
         apt-get install -y qemu-system-x86 qemu-system-x86-microvm
