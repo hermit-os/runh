@@ -88,6 +88,9 @@ jobs:
         sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh" } },/g' /etc/docker/daemon.json
         >&2 cat /etc/docker/daemon.json
         systemctl restart docker || systemctl status docker
+    - name: Check Docker runtime
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: docker info|grep -i runtime
     - name: Set up runh with CRI-O
       id: runh-crio-setup
       shell: sudo bash --noprofile --norc -eo pipefail {0}
