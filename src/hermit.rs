@@ -59,15 +59,28 @@ pub fn get_qemu_args(
 		kernel,
 		"-initrd",
 		app,
-		"-cpu",
-		"host",
 	]
 	.iter()
 	.map(|s| s.to_string())
 	.collect();
 
 	if kvm {
-		exec_args.append(&mut vec!["--enable-kvm"].iter().map(|s| s.to_string()).collect());
+		exec_args.append(
+			&mut vec!["--enable-kvm", "-cpu", "host"]
+				.iter()
+				.map(|s| s.to_string())
+				.collect(),
+		);
+	} else {
+		exec_args.append(
+			&mut vec![
+				"-cpu",
+				"qemu64,apic,fsgsbase,rdtscp,xsave,xsaveopt,fxsr,rdrand",
+			]
+			.iter()
+			.map(|s| s.to_string())
+			.collect(),
+		);
 	}
 
 	if micro_vm {
