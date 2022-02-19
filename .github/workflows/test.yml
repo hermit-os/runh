@@ -45,22 +45,22 @@ jobs:
         rm -f crictl-$VERSION-linux-amd64.tar.gz
     - name: Pull Hermit environment
       run: |
-        docker export $(docker create docker.io/library/hello-world:latest) > hermit-env.tar
+        docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > hermit-env.tar
         mkdir -p hermit-env
         tar -xf hermit-env.tar -C hermit-env
         sudo mkdir -p /run/runh
         sudo ln -s $PWD/hermit-env /run/runh/hermit
     - name: Pull container image
       run: |
-        sudo crictl pull docker.io/library/hello-world:latest
-        docker export $(docker create hello-world:latest) > runh-image.tar
+        sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
+        docker export $(docker create rusty_demo:latest) > runh-image.tar
         mkdir -p /home/runner/runh-image/rootfs
         tar -xf runh-image.tar -C /home/runner/runh-image/rootfs
     - name: Create CRI configurations
       run: |
         echo '{ "metadata": { "name": "hermit-sandbox", "namespace": "default", "attempt": 1, "uid": "hdishd83djaidwnduwk28bcsb" }, "log_directory": "/tmp", "linux": { } }' \
             > /home/runner/pod.json
-        echo '{ "metadata": { "name": "httpd" }, "image":{ "image": "docker.io/library/hello-world:latest" }, "log_path":"httpd.log", "linux": { } }' \
+        echo '{ "metadata": { "name": "httpd" }, "image":{ "image": "ghcr.io/hermitcore/rusty_demo:latest" }, "log_path":"httpd.log", "linux": { } }' \
             > /home/runner/container.json
     - uses: hecrj/setup-rust-action@v1
       with: 
@@ -129,7 +129,7 @@ jobs:
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
       run: |
-         docker run --runtime=runh -it -d -p 9975:9975 docker.io/library/hello-world:latest > container.id
+         docker run --runtime=runh -it -d -p 9975:9975 ghcr.io/hermitcore/rusty_demo:latest > container.id
          export CONTAINERID=$(cat container.id)
          sleep 2
          docker logs $CONTAINERID
