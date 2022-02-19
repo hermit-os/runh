@@ -43,9 +43,9 @@ jobs:
         docker pull ghcr.io/hermitcore/hermit_env:latest
         docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
         mkdir -p hermit-env
-        tar -xf hermit-env.tar -C hermit-env
         sudo mkdir -p /run/runh
-        sudo ln -s $PWD/hermit-env /run/runh/hermit
+        sudo tar -xf hermit-env.tar -C /run/runh/hermit
+        sudo tree /run/runh/hermit
     - name: Pull container image
       run: |
         sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
@@ -103,7 +103,6 @@ jobs:
       run: |
         cd /home/runner/runh-image
         tree .
-        tree /run/runh/hermit
         runh --root /run/runh spec --bundle . --args /hermit/rusty_demo
         runh --root /run/runh -l debug create  --bundle . runh-container
         runh --root /run/runh -l debug start  runh-container
