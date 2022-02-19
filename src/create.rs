@@ -189,6 +189,7 @@ pub fn create_container(
 			overlay_upperdir.as_os_str().to_str().unwrap(),
 			overlay_workdir.as_os_str().to_str().unwrap()
 		);
+		debug!("Mount with mergedir {} and datastr {}", overlay_mergeddir.to_str().unwrap_or_default(), datastr);
 		nix::mount::mount::<str, PathBuf, str, str>(
 			Some("overlay"),
 			&overlay_mergeddir,
