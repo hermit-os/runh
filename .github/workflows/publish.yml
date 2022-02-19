@@ -1,0 +1,37 @@
+name: Publish Hermit environment
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: '0 0 * * 6'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish_image:
+    name: Publish container image
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v1
+      with:
+        registry: ghcr.io
+        username: hermitcore
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create dockerfile
+      run: |
+        cat << END > Dockerfile
+        FROM ubuntu:latest
+        RUN apt update
+        RUN apt install -y --no-install-recommends qemu-system-x86 qemu-system-x86-microvm
+        END
+    - name: Build and push container
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/hermitcore/hermit_env:latest
