@@ -37,6 +37,6 @@ procfs = "0.12.0"
 rtnetlink = "0.8.1"
 
 [dependencies.goblin]
-version = "0.4"
+version = "0.5.1"
 default-features = false
 features = ["elf64", "elf32", "endian_fd", "std"]
