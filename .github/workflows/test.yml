@@ -49,7 +49,7 @@ jobs:
     - name: Pull container image
       run: |
         sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
-        docker pull create ghcr.io/hermitcore/rusty_demo:latest
+        docker pull ghcr.io/hermitcore/rusty_demo:latest
         docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > runh-image.tar
         mkdir -p /home/runner/runh-image/rootfs
         tar -xf runh-image.tar -C /home/runner/runh-image/rootfs
