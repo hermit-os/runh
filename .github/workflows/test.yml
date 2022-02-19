@@ -95,7 +95,6 @@ jobs:
       id: runh-crio-setup
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/default_runtime = "runc"/default_runtime = "runh"/g' /etc/crio/crio.conf
         sed -i 's/\[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.runh\]\nruntime_path = "\/home\/runner\/.cargo\/bin\/runh"\nruntime_type = "oci"\nruntime_root = "\/run\/runh"\n\n\[crio.runtime.runtimes.runc\]/g' /etc/crio/crio.conf
         systemctl restart crio || systemctl status crio
         >&2 cat /etc/crio/crio.conf
@@ -114,7 +113,7 @@ jobs:
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-         crictl runp /home/runner/pod.json > pod.id
+         crictl runp --runtime=runh /home/runner/pod.json > pod.id
          export PODID=$(cat pod.id)        
          crictl create $PODID /home/runner/container.json /home/runner/pod.json > container.id
          export CONTAINERID=$(cat container.id)
