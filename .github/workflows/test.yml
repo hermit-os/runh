@@ -38,16 +38,18 @@ jobs:
         curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz
         sudo tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
         rm -f crictl-$VERSION-linux-amd64.tar.gz
-    - name: Pull Hermit environment
+    - name: Pull images
       run: |
         docker pull ghcr.io/hermitcore/hermit_env:latest
+        docker pull ghcr.io/hermitcore/rusty_demo:latest
+        sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
+    - name: Setup Hermit environment
+      run: |
         docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
         sudo mkdir -p /run/runh/hermit
         sudo tar -xf hermit-env.tar -C /run/runh/hermit
-    - name: Pull container image
+    - name: Setup rootfs
       run: |
-        sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
-        docker pull ghcr.io/hermitcore/rusty_demo:latest
         docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > runh-image.tar
         mkdir -p /home/runner/runh-image/rootfs
         tar -xf runh-image.tar -C /home/runner/runh-image/rootfs
@@ -84,7 +86,7 @@ jobs:
     - name: Setup runh with Docker
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh" } },/g' /etc/docker/daemon.json
+        sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh", "runtimeArgs": ["-l", "debug", "--hermit-env", "</run/runh/hermit",] } },/g' /etc/docker/daemon.json
         >&2 cat /etc/docker/daemon.json
         systemctl restart docker || systemctl status docker
     - name: Check Docker runtime
