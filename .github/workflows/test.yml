@@ -16,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Install Qemu
+      run: |
+        apt-get update
+        apt-get install -y qemu-system-x86 qemu-system-x86-microvm
     - name: Install CRI-O
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
