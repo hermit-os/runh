@@ -43,10 +43,10 @@ pub fn get_qemu_args(
 	netconf: &Option<network::HermitNetworkConfig>,
 	app_args: &Vec<String>,
 	micro_vm: bool,
+	kvm: bool,
 ) -> Vec<String> {
 	let mut exec_args: Vec<String> = vec![
 		"qemu-system-x86_64",
-		"-enable-kvm",
 		"-display",
 		"none",
 		"-smp",
@@ -65,6 +65,10 @@ pub fn get_qemu_args(
 	.iter()
 	.map(|s| s.to_string())
 	.collect();
+
+	if kvm {
+		exec_args.append(&mut vec!["--enable-kvm"].iter().map(|s| s.to_string()).collect());
+	}
 
 	if micro_vm {
 		exec_args.append(
