@@ -45,7 +45,6 @@ jobs:
         mkdir -p hermit-env
         sudo mkdir -p /run/runh/hermit
         sudo tar -xf hermit-env.tar -C /run/runh/hermit
-        sudo tree /run/runh/hermit
     - name: Pull container image
       run: |
         sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
