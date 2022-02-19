@@ -86,7 +86,7 @@ jobs:
     - name: Setup runh with Docker
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh", "runtimeArgs": ["-l", "debug", "--root", "\/run\/runh"] } },/g' /etc/docker/daemon.json
+        sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh", "runtimeArgs": ["-l", "debug", "--hermit-env", "\/run\/runh/hermit"] } },/g' /etc/docker/daemon.json
         >&2 cat /etc/docker/daemon.json
         systemctl restart docker || systemctl status docker
     - name: Check Docker runtime
