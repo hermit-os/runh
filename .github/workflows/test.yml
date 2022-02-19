@@ -43,7 +43,7 @@ jobs:
         docker pull ghcr.io/hermitcore/hermit_env:latest
         docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
         mkdir -p hermit-env
-        sudo mkdir -p /run/runh
+        sudo mkdir -p /run/runh/hermit
         sudo tar -xf hermit-env.tar -C /run/runh/hermit
         sudo tree /run/runh/hermit
     - name: Pull container image
