@@ -32,17 +32,12 @@ jobs:
         apt-get update
         apt-get install -y cri-o cri-o-runc
         systemctl start crio.service
+    - name: Install crictl
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: apt-get install cri-tools
     - name: Check CRI-O status
       shell: sudo bash --noprofile --norc -eo pipefail {0}
-      run: |
-        systemctl status crio
-        apt info cri-tools
-    - name: Install crictl
-      run: |
-        export VERSION="v1.23.0"
-        curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz
-        sudo tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
-        rm -f crictl-$VERSION-linux-amd64.tar.gz
+      run: systemctl status crio
     - name: Pull images
       run: |
         docker pull ghcr.io/hermitcore/hermit_env:latest
