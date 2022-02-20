@@ -31,6 +31,7 @@ jobs:
         curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/Release.key | gpg --dearmor -o /usr/share/keyrings/libcontainers-crio-archive-keyring.gpg
         apt-get update
         apt-get install -y cri-o cri-o-runc
+        crio config --default > /ect/crio/crio.conf
         systemctl start crio.service
     - name: Install crictl
       shell: sudo bash --noprofile --norc -eo pipefail {0}
@@ -39,7 +40,6 @@ jobs:
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
         systemctl status crio
-        crio -d "" --config="" config > /ect/crio/crio.conf
         ls -la /etc/crio
     - name: Pull images
       run: |
