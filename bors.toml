@@ -1,6 +1,7 @@
 status = [
   "Setup, build and test",
   "Format check",
+  "Clippy",
 ]
 delete_merged_branches = true
 timeout_sec = 3600
