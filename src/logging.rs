@@ -126,10 +126,7 @@ pub fn init(
 				OpenOptions::new()
 					.create(true)
 					.write(true)
-					.open(project_dir.join(format!(
-						"log-{}.json",
-						Local::now().to_rfc3339().to_string()
-					)))
+					.open(project_dir.join(format!("log-{}.json", Local::now().to_rfc3339())))
 					.expect("Could not open tmp log file!"),
 			)
 		}),

@@ -4,7 +4,7 @@ use std::{fs::File, os::unix::prelude::AsRawFd};
 
 struct ConfiguredNamespace<'a>(File, &'a runtime::LinuxNamespace);
 
-pub fn join_namespaces(namespaces: &Vec<runtime::LinuxNamespace>) {
+pub fn join_namespaces(namespaces: &[runtime::LinuxNamespace]) {
 	let mut configured_ns: Vec<ConfiguredNamespace> = Vec::new();
 	for ns in namespaces {
 		if let Some(path) = ns.path().as_ref() {

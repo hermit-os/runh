@@ -294,7 +294,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				.write(&child_pid.to_le_bytes())
 				.expect("Unable to write to init-pipe!");
 			debug!("Wrote {} bytes for child-PID", written_bytes);
-			return 0; // Exit child process
+			0 // Exit child process
 		}
 		InitStage::CHILD => {
 			debug!("enter init_stage child");
@@ -441,7 +441,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			debug!("Signalling parent to run pre-start hooks");
 			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
 			init_pipe
-				.write(&[crate::consts::INIT_REQ_PRESTART_HOOKS])
+				.write_all(&[crate::consts::INIT_REQ_PRESTART_HOOKS])
 				.expect("Unable to write to init-pipe!");
 
 			let mut sig_buffer = [0u8];
@@ -461,7 +461,7 @@ fn init_stage(args: SetupArgs) -> isize {
 					Ok(config) => {
 						if config.did_init && network_namespace.is_some() {
 							init_pipe
-								.write(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
+								.write_all(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
 								.expect("Unable to write to init-pipe!");
 
 							let network_config_str = serde_json::to_string(&config)
@@ -473,7 +473,7 @@ fn init_stage(args: SetupArgs) -> isize {
 								network_config_str.len()
 							);
 							init_pipe
-								.write(&(network_config_str.len() as usize).to_le_bytes())
+								.write_all(&(network_config_str.len() as usize).to_le_bytes())
 								.expect("Could not write hermit env path size to init pipe!");
 
 							init_pipe
@@ -481,7 +481,7 @@ fn init_stage(args: SetupArgs) -> isize {
 								.expect("Could not write hermit env path to init pipe!");
 						} else {
 							init_pipe
-								.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
+								.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
 								.expect("Unable to write to init-pipe!");
 						}
 						let mut sig_buffer = [0u8];
@@ -500,7 +500,7 @@ fn init_stage(args: SetupArgs) -> isize {
 					Err(x) => {
 						warn!("Hermit network setup could not be completed: {}", x);
 						init_pipe
-							.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
+							.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
 							.expect("Unable to write to init-pipe!");
 						let mut sig_buffer = [0u8];
 						init_pipe
@@ -702,7 +702,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//Tell runh create we are ready to execv
 			init_pipe
-				.write(&[crate::consts::INIT_READY_TO_EXECV])
+				.write_all(&[crate::consts::INIT_READY_TO_EXECV])
 				.expect("Unable to write to init-pipe!");
 
 			info!("Runh init setup complete. Now waiting for signal to execv!");

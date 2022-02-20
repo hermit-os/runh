@@ -277,7 +277,7 @@ pub fn configure_mounts(
 			);
 		}
 	}
-	return setup_dev;
+	setup_dev
 }
 
 fn remount(
@@ -369,7 +369,7 @@ fn open_trough_procfd(
 		.custom_flags(libc::O_PATH | libc::O_CLOEXEC)
 		.read(true)
 		.write(false)
-		.mode(0)
+		.mode(0o0)
 		.open(&full_dest)
 		.expect(format!("Could not open mount directory at {:?}!", full_dest).as_str());
 
@@ -403,7 +403,7 @@ pub fn create_all_dirs(dest: &PathBuf) {
 		.expect(format!("Could not create directories for {:?}", dest).as_str());
 }
 
-fn parse_mount_options(options: &Vec<String>) -> MountOptions {
+fn parse_mount_options(options: &[String]) -> MountOptions {
 	let mut mount_flags = MsFlags::empty();
 	let mut propagation_flags = MsFlags::empty();
 	let mut data: Vec<String> = Vec::new();

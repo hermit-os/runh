@@ -138,7 +138,7 @@ pub fn set_rootfs_read_only() {
 	let mut flags = MsFlags::MS_BIND;
 	flags.insert(MsFlags::MS_REMOUNT);
 	flags.insert(MsFlags::MS_RDONLY);
-	if let Err(_) = nix::mount::mount::<str, str, str, str>(None, "/", None, flags, None) {
+	if nix::mount::mount::<str, str, str, str>(None, "/", None, flags, None).is_err() {
 		let stat =
 			nix::sys::statvfs::statvfs("/").expect("Could not stat / after read-only remount!");
 
@@ -154,7 +154,7 @@ pub fn pivot_root(rootfs: &PathBuf) {
 	let old_root = OpenOptions::new()
 		.read(true)
 		.write(false)
-		.mode(0)
+		.mode(0o0)
 		.custom_flags(libc::O_DIRECTORY)
 		.open("/")
 		.expect("Could not open old root!");
@@ -162,7 +162,7 @@ pub fn pivot_root(rootfs: &PathBuf) {
 	let new_root = OpenOptions::new()
 		.read(true)
 		.write(false)
-		.mode(0)
+		.mode(0o0)
 		.custom_flags(libc::O_DIRECTORY)
 		.open(rootfs)
 		.expect("Could not open new root!");
