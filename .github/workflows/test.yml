@@ -31,7 +31,12 @@ jobs:
         curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/Release.key | gpg --dearmor -o /usr/share/keyrings/libcontainers-crio-archive-keyring.gpg
         apt-get update
         apt-get install -y cri-o cri-o-runc
-        systemctl start crio
+        systemctl start crio.service
+    - name: Check CRI-O status
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: |
+        systemctl status crio
+        apt info cri-tools
     - name: Install crictl
       run: |
         export VERSION="v1.23.0"
