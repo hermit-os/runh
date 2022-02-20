@@ -49,6 +49,7 @@ jobs:
         docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
         sudo mkdir -p /run/runh/hermit
         sudo tar -xf hermit-env.tar -C /run/runh/hermit
+        tree /run/runh/hermit
     - name: Setup rootfs
       run: |
         docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > runh-image.tar
