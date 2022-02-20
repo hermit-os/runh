@@ -131,7 +131,7 @@ pub fn create_container(
 		.custom_flags(libc::O_PATH | libc::O_CLOEXEC)
 		.read(true)
 		.write(false)
-		.mode(0)
+		.mode(0o0)
 		.open(&fifo_location)
 		.expect("Could not open fifo!");
 
