@@ -6,8 +6,8 @@ use std::{
 		fs::DirBuilderExt,
 		prelude::{AsRawFd, OpenOptionsExt},
 	},
-	path::PathBuf,
 	path::Path,
+	path::PathBuf,
 };
 
 use crate::rootfs;

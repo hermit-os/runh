@@ -1,7 +1,7 @@
 use crate::network;
 use goblin::elf;
 use goblin::elf64::header::EI_OSABI;
-use std::{fs, path::PathBuf, path::Path};
+use std::{fs, path::Path, path::PathBuf};
 
 pub fn is_hermit_app(path: &Path) -> bool {
 	let buffer = fs::read(path)

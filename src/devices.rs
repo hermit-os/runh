@@ -1,4 +1,6 @@
-use std::{convert::TryInto, fs::OpenOptions, os::unix::prelude::OpenOptionsExt, path::PathBuf, path::Path};
+use std::{
+	convert::TryInto, fs::OpenOptions, os::unix::prelude::OpenOptionsExt, path::Path, path::PathBuf,
+};
 
 use nix::{
 	mount::MsFlags,

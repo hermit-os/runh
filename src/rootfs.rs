@@ -1,8 +1,8 @@
 use std::{
 	fs::OpenOptions,
 	os::unix::prelude::{AsRawFd, OpenOptionsExt},
-	path::PathBuf,
 	path::Path,
+	path::PathBuf,
 };
 
 use nix::mount::{MntFlags, MsFlags};
