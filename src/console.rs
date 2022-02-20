@@ -48,7 +48,7 @@ pub fn setup_console(console_socket: File, win_size: Option<&nix::pty::Winsize>)
 	.expect("Could not open pty slave path!");
 	for i in 0..3 {
 		nix::unistd::dup3(slave_fd, i, OFlag::empty())
-			.expect(format!("Could not dup3 pty slave_fd onto fd {}", i).as_str());
+			.unwrap_or_else(|_| panic!("Could not dup3 pty slave_fd onto fd {}", i));
 	}
 
 	unsafe { ioctl_set_ctty(0, 0) }.expect("Could not set ctty!");

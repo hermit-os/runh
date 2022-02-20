@@ -1,14 +1,14 @@
 use nix::sched::CloneFlags;
 use oci_spec::runtime;
 
-pub fn generate_cloneflags(namespaces: &Vec<runtime::LinuxNamespace>) -> CloneFlags {
+pub fn generate_cloneflags(namespaces: &[runtime::LinuxNamespace]) -> CloneFlags {
 	let mut result = CloneFlags::empty();
 	for ns in namespaces {
 		if ns.path().is_none() {
 			result.insert(get_cloneflag(ns.typ()));
 		}
 	}
-	return result;
+	result
 }
 
 pub fn get_cloneflag(typ: runtime::LinuxNamespaceType) -> CloneFlags {

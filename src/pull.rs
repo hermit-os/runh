@@ -19,7 +19,7 @@ async fn async_pull(
 	let dkref = Reference::from_str(registry).expect("Invalid registry string");
 	debug!("Select {}", dkref);
 
-	let image = &dkref.repository().clone();
+	let image = &dkref.repository();
 	let login_scope = format!("repository:{}:pull", image);
 	let version = &dkref.version().clone();
 	let dclient = Client::configure()
@@ -42,13 +42,13 @@ async fn async_pull(
 		.expect("Unable to determin the number of layers");
 	debug!(
 		"{} -> got {} layer(s)",
-		&dkref.repository().clone(),
+		&dkref.repository(),
 		layers_digests.len()
 	);
 
 	let blob_futures = layers_digests
 		.iter()
-		.map(|layer_digest| dclient.get_blob(&image, &layer_digest))
+		.map(|layer_digest| dclient.get_blob(image, layer_digest))
 		.collect::<Vec<_>>();
 
 	let blobs = try_join_all(blob_futures)

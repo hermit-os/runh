@@ -5,7 +5,7 @@ use crate::state;
 
 pub fn kill_container(project_dir: PathBuf, id: Option<&str>, sig: Option<&str>, all: bool) {
 	let container_state = state::get_container_state(project_dir, id.unwrap())
-		.expect(format!("Could not query state for container {}", id.unwrap()).as_str());
+		.unwrap_or_else(|| panic!("Could not query state for container {}", id.unwrap()));
 	if container_state.status != "created" && container_state.status != "running" {
 		panic!("Cannot send signals to non-running containers!")
 	}
@@ -17,7 +17,7 @@ pub fn kill_container(project_dir: PathBuf, id: Option<&str>, sig: Option<&str>,
 	let pid = container_state.pid.unwrap();
 	let signal = if let Ok(sig_nr) = sig.unwrap().parse::<i32>() {
 		nix::sys::signal::Signal::try_from(sig_nr)
-			.expect(format!("Could not parse signal number {}", sig.unwrap()).as_str())
+			.unwrap_or_else(|_| panic!("Could not parse signal number {}", sig.unwrap()))
 	} else {
 		let signal_str = if !sig.unwrap().starts_with("SIG") {
 			format!("SIG{}", sig.unwrap())
@@ -25,15 +25,14 @@ pub fn kill_container(project_dir: PathBuf, id: Option<&str>, sig: Option<&str>,
 			sig.unwrap().to_owned()
 		};
 		nix::sys::signal::Signal::from_str(signal_str.as_str())
-			.expect(format!("Could not parse signal string {}", sig.unwrap()).as_str())
+			.unwrap_or_else(|_| panic!("Could not parse signal string {}", sig.unwrap()))
 	};
 
-	nix::sys::signal::kill(Pid::from_raw(pid), signal).expect(
-		format!(
+	nix::sys::signal::kill(Pid::from_raw(pid), signal).unwrap_or_else(|_| {
+		panic!(
 			"Could not send signal {} to container process ID  {}!",
 			sig.unwrap(),
 			pid
 		)
-		.as_str(),
-	);
+	});
 }

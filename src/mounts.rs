@@ -6,6 +6,7 @@ use std::{
 		fs::DirBuilderExt,
 		prelude::{AsRawFd, OpenOptionsExt},
 	},
+	path::Path,
 	path::PathBuf,
 };
 
@@ -28,7 +29,7 @@ impl Default for MountOptions {
 	}
 }
 
-pub fn mount_console(slave_path: &PathBuf) {
+pub fn mount_console(slave_path: &Path) {
 	let old_umask = nix::sys::stat::umask(Mode::empty());
 	let _ = OpenOptions::new()
 		.mode(0o666)
@@ -38,7 +39,7 @@ pub fn mount_console(slave_path: &PathBuf) {
 		.open("/dev/console")
 		.expect("Could not create /dev/console");
 
-	nix::mount::mount::<PathBuf, str, str, str>(
+	nix::mount::mount::<Path, str, str, str>(
 		Some(slave_path),
 		"/dev/console",
 		Some("bind"),
@@ -51,9 +52,9 @@ pub fn mount_console(slave_path: &PathBuf) {
 }
 
 pub fn configure_mounts(
-	mounts: &Vec<runtime::Mount>,
-	rootfs: &PathBuf,
-	bundle_rootfs: &PathBuf,
+	mounts: &[runtime::Mount],
+	rootfs: &Path,
+	bundle_rootfs: &Path,
 	mount_label: &Option<String>,
 ) -> bool {
 	let mut setup_dev = true;
@@ -71,7 +72,7 @@ pub fn configure_mounts(
 		let mount_options = mount
 			.options()
 			.as_ref()
-			.and_then(|options| Some(parse_mount_options(options)))
+			.map(|options| parse_mount_options(options))
 			.unwrap_or_default();
 
 		let destination_resolved = rootfs::resolve_in_rootfs(mount.destination(), rootfs);
@@ -87,11 +88,8 @@ pub fn configure_mounts(
 			let is_bind_mount = mount
 				.options()
 				.as_ref()
-				.and_then(|options| {
-					Some(
-						options.contains(&"bind".to_string())
-							|| options.contains(&"rbind".to_string()),
-					)
+				.map(|options| {
+					options.contains(&"bind".to_string()) || options.contains(&"rbind".to_string())
 				})
 				.unwrap_or(false);
 			if is_bind_mount {
@@ -114,21 +112,21 @@ pub fn configure_mounts(
 					if mount_src.is_dir() {
 						create_all_dirs(&destination_resolved);
 					} else {
-						create_all_dirs(&PathBuf::from(&destination_resolved.parent().expect(
-							format!("Could not mount to destination {:?} which is not a directory and has no parent dir!", destination_resolved).as_str())));
+						create_all_dirs(&PathBuf::from(&destination_resolved.parent().unwrap_or_else(||
+							panic!("Could not mount to destination {:?} which is not a directory and has no parent dir!", destination_resolved)
+						)));
 						if !destination_resolved.exists() {
 							let _ = OpenOptions::new()
 								.mode(0o755)
 								.create(true)
 								.write(true)
 								.open(&destination_resolved)
-								.expect(
-									format!(
+								.unwrap_or_else(|_| {
+									panic!(
 										"Could not create destination for bind mount at {:?}",
 										destination_resolved
 									)
-									.as_str(),
-								);
+								});
 						}
 					}
 
@@ -159,7 +157,7 @@ pub fn configure_mounts(
 					//TODO: Relabel source (?)
 				}
 			} else {
-				match mount.typ().as_ref().and_then(|x| Some(x.as_str())) {
+				match mount.typ().as_ref().map(|x| x.as_str()) {
 					Some("sysfs") | Some("proc") => {
 						if !destination_resolved.exists() || destination_resolved.is_dir() {
 							create_all_dirs(&destination_resolved);
@@ -196,13 +194,12 @@ pub fn configure_mounts(
 							Some(
 								destination_resolved
 									.metadata()
-									.expect(
-										format!(
-										"Could not read metadata for (existing) mount destination at {:?}",
-										destination_resolved
-									)
-										.as_str(),
-									)
+									.unwrap_or_else(|_| {
+										panic!(
+											"Could not read metadata for (existing) mount destination at {:?}",
+											destination_resolved
+										)
+									})
 									.permissions(),
 							)
 						};
@@ -217,12 +214,13 @@ pub fn configure_mounts(
 						);
 
 						if let Some(mode) = tmpfs_mode {
-							std::fs::set_permissions(&destination_resolved, mode).expect(
-								format!(
+							std::fs::set_permissions(&destination_resolved, mode).unwrap_or_else(
+								|_| {
+									panic!(
 									"Could not change permission on newly mounted tmpfs at {:?}",
 									destination_resolved
 								)
-								.as_str(),
+								},
 							);
 						}
 
@@ -277,41 +275,40 @@ pub fn configure_mounts(
 			);
 		}
 	}
-	return setup_dev;
+	setup_dev
 }
 
 fn remount(
 	device: &str,
-	mount_src: &PathBuf,
-	mount_dest: &PathBuf,
-	full_dest: &PathBuf,
+	mount_src: &Path,
+	mount_dest: &Path,
+	full_dest: &Path,
 	mut options: MountOptions,
 ) {
 	let procfd = open_trough_procfd(device, mount_dest, full_dest, &mut options);
 	let procfd_path = PathBuf::from("/proc/self/fd").join(procfd.as_raw_fd().to_string());
 
 	options.mount_flags.insert(MsFlags::MS_REMOUNT);
-	nix::mount::mount::<PathBuf, PathBuf, str, str>(
-		Some(&mount_src),
+	nix::mount::mount::<Path, Path, str, str>(
+		Some(mount_src),
 		&procfd_path,
 		Some(device.to_owned().as_str()),
 		options.mount_flags,
 		None,
 	)
-	.expect(
-		format!(
+	.unwrap_or_else(|_| {
+		panic!(
 			"Could not remount source {:?} at destination path {:?}",
 			mount_src, full_dest
 		)
-		.as_str(),
-	);
+	});
 }
 
 pub fn mount_with_flags(
 	device: &str,
-	mount_src: &PathBuf,
-	mount_dest: &PathBuf,
-	full_dest: &PathBuf,
+	mount_src: &Path,
+	mount_dest: &Path,
+	full_dest: &Path,
 	mut options: MountOptions,
 	_label: Option<&String>,
 ) {
@@ -319,20 +316,19 @@ pub fn mount_with_flags(
 	let procfd = open_trough_procfd(device, mount_dest, full_dest, &mut options);
 	let procfd_path = PathBuf::from("/proc/self/fd").join(procfd.as_raw_fd().to_string());
 
-	nix::mount::mount::<PathBuf, PathBuf, str, str>(
-		Some(&mount_src),
+	nix::mount::mount::<Path, Path, str, str>(
+		Some(mount_src),
 		&procfd_path,
 		Some(device.to_owned().as_str()),
 		options.mount_flags,
-		options.data.as_ref().and_then(|f| Some(f.as_str())),
+		options.data.as_deref(),
 	)
-	.expect(
-		format!(
+	.unwrap_or_else(|_| {
+		panic!(
 			"Could not mount source {:?} at destination path {:?}",
 			mount_src, full_dest
 		)
-		.as_str(),
-	);
+	});
 
 	if !options.propagation_flags.is_empty() {
 		let new_procfd = open_trough_procfd(device, mount_dest, full_dest, &mut options);
@@ -345,23 +341,22 @@ pub fn mount_with_flags(
 			options.propagation_flags,
 			None,
 		)
-		.expect(
-			format!(
+		.unwrap_or_else(|_| {
+			panic!(
 				"Could not apply mount propagation for destination path {:?}",
 				full_dest
 			)
-			.as_str(),
-		);
+		});
 	}
 }
 
 fn open_trough_procfd(
 	device: &str,
-	mount_dest: &PathBuf,
-	full_dest: &PathBuf,
+	mount_dest: &Path,
+	full_dest: &Path,
 	options: &mut MountOptions,
 ) -> File {
-	if mount_dest.clone() == PathBuf::from("/dev") || device == "tmpfs" {
+	if mount_dest.to_path_buf() == PathBuf::from("/dev") || device == "tmpfs" {
 		options.mount_flags.remove(MsFlags::MS_RDONLY);
 	}
 
@@ -369,22 +364,21 @@ fn open_trough_procfd(
 		.custom_flags(libc::O_PATH | libc::O_CLOEXEC)
 		.read(true)
 		.write(false)
-		.mode(0)
+		.mode(0o0)
 		.open(&full_dest)
-		.expect(format!("Could not open mount directory at {:?}!", full_dest).as_str());
+		.unwrap_or_else(|_| panic!("Could not open mount directory at {:?}!", full_dest));
 
 	let mut procfd_path = PathBuf::new();
 	procfd_path.push("/proc/self/fd");
 	procfd_path.push(dest_file.as_raw_fd().to_string());
 
-	let real_path = std::fs::read_link(&procfd_path).expect(
-		format!(
+	let real_path = std::fs::read_link(&procfd_path).unwrap_or_else(|_| {
+		panic!(
 			"Could not read mount path at {:?} through proc fd!",
 			full_dest
 		)
-		.as_str(),
-	);
-	if real_path != full_dest.to_owned() {
+	});
+	if real_path != *full_dest {
 		panic!(
 			"procfd path and destination path do not equal for mount destination {:?}! procfd path was {:?}!",
 			full_dest,
@@ -395,15 +389,15 @@ fn open_trough_procfd(
 	dest_file
 }
 
-pub fn create_all_dirs(dest: &PathBuf) {
+pub fn create_all_dirs(dest: &Path) {
 	DirBuilder::new()
 		.recursive(true)
 		.mode(0o755)
 		.create(dest)
-		.expect(format!("Could not create directories for {:?}", dest).as_str());
+		.unwrap_or_else(|_| panic!("Could not create directories for {:?}", dest));
 }
 
-fn parse_mount_options(options: &Vec<String>) -> MountOptions {
+fn parse_mount_options(options: &[String]) -> MountOptions {
 	let mut mount_flags = MsFlags::empty();
 	let mut propagation_flags = MsFlags::empty();
 	let mut data: Vec<String> = Vec::new();

@@ -1,6 +1,7 @@
 use std::{
 	fs::OpenOptions,
 	os::unix::prelude::{AsRawFd, OpenOptionsExt},
+	path::Path,
 	path::PathBuf,
 };
 
@@ -9,8 +10,8 @@ use oci_spec::runtime::Spec;
 use path_clean::PathClean;
 
 // This function should be equivalent to cyphar/filepath-securejoin/SecureJoinVFS
-pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf {
-	let mut unsafe_path = destination_rel.clone();
+pub fn resolve_in_rootfs(destination_rel: &Path, rootfs: &Path) -> PathBuf {
+	let mut unsafe_path = destination_rel.to_path_buf();
 	let mut destination_resolved = PathBuf::new();
 	let mut n = 0;
 
@@ -41,32 +42,30 @@ pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf
 			continue;
 		}
 
-		let metadata = full_path.symlink_metadata().expect(
-			format!(
+		let metadata = full_path.symlink_metadata().unwrap_or_else(|_| {
+			panic!(
 				"Could not get metadata for mount path component at {:?}!",
 				full_path
 			)
-			.as_str(),
-		);
+		});
 		if !metadata.file_type().is_symlink() {
 			destination_resolved.push(subpath);
 			continue;
 		}
 
-		n = n + 1;
+		n += 1;
 
-		let link = full_path.read_link().expect(
-			format!(
+		let link = full_path.read_link().unwrap_or_else(|_| {
+			panic!(
 				"Could not read symlink for mount path component at {:?}!",
 				full_path
 			)
-			.as_str(),
-		);
+		});
 
 		if link.is_absolute() {
 			destination_resolved.clear();
 		}
-		unsafe_path = link.join(unsafe_path);
+		unsafe_path = link.join(unsafe_path).to_path_buf();
 	}
 	rootfs
 		.join(
@@ -79,7 +78,7 @@ pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf
 		.clean()
 }
 
-pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
+pub fn mount_rootfs(spec: &Spec, rootfs_path: &Path) {
 	let mut mount_flags = MsFlags::empty();
 	mount_flags.insert(MsFlags::MS_REC);
 	mount_flags.insert(
@@ -89,7 +88,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 			.unwrap()
 			.rootfs_propagation()
 			.as_ref()
-			.and_then(|x| Some(x.as_str()))
+			.map(|x| x.as_str())
 		{
 			Some("shared") => MsFlags::MS_SHARED,
 			Some("slave") => MsFlags::MS_SLAVE,
@@ -109,12 +108,13 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 		},
 	);
 
-	nix::mount::mount::<str, str, str, str>(None, "/", None, mount_flags, None).expect(
-		format!(
-			"Could not mount rootfs with given MsFlags {:?}",
-			mount_flags
-		)
-		.as_str(),
+	nix::mount::mount::<str, str, str, str>(None, "/", None, mount_flags, None).unwrap_or_else(
+		|_| {
+			panic!(
+				"Could not mount rootfs with given MsFlags {:?}",
+				mount_flags
+			)
+		},
 	);
 
 	//TODO: Make parent mount private (?)
@@ -124,21 +124,21 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 
 	debug!("Mounting rootfs at {:?}", rootfs_path);
 
-	nix::mount::mount::<PathBuf, PathBuf, str, str>(
+	nix::mount::mount::<Path, Path, str, str>(
 		Some(rootfs_path),
 		rootfs_path,
 		Some("bind"),
 		bind_mount_flags,
 		None,
 	)
-	.expect(format!("Could not bind-mount rootfs at {:?}", rootfs_path).as_str());
+	.unwrap_or_else(|_| panic!("Could not bind-mount rootfs at {:?}", &rootfs_path));
 }
 
 pub fn set_rootfs_read_only() {
 	let mut flags = MsFlags::MS_BIND;
 	flags.insert(MsFlags::MS_REMOUNT);
 	flags.insert(MsFlags::MS_RDONLY);
-	if let Err(_) = nix::mount::mount::<str, str, str, str>(None, "/", None, flags, None) {
+	if nix::mount::mount::<str, str, str, str>(None, "/", None, flags, None).is_err() {
 		let stat =
 			nix::sys::statvfs::statvfs("/").expect("Could not stat / after read-only remount!");
 
@@ -150,11 +150,11 @@ pub fn set_rootfs_read_only() {
 	} //The first mount should not fail unless we are in a user namespace so technically the content of the if-block is unreachable.
 }
 
-pub fn pivot_root(rootfs: &PathBuf) {
+pub fn pivot_root(rootfs: &Path) {
 	let old_root = OpenOptions::new()
 		.read(true)
 		.write(false)
-		.mode(0)
+		.mode(0o0)
 		.custom_flags(libc::O_DIRECTORY)
 		.open("/")
 		.expect("Could not open old root!");
@@ -162,7 +162,7 @@ pub fn pivot_root(rootfs: &PathBuf) {
 	let new_root = OpenOptions::new()
 		.read(true)
 		.write(false)
-		.mode(0)
+		.mode(0o0)
 		.custom_flags(libc::O_DIRECTORY)
 		.open(rootfs)
 		.expect("Could not open new root!");

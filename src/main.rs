@@ -51,7 +51,7 @@ fn parse_matches(app: App) {
 			.recursive(true)
 			.mode(0o755)
 			.create(&project_dir)
-			.expect(format!("Could not create root directory at {:?}", &project_dir).as_str());
+			.unwrap_or_else(|_| panic!("Could not create root directory at {:?}", &project_dir));
 	}
 
 	if let ("state", Some(sub_m)) = matches.subcommand() {

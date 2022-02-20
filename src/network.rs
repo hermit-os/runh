@@ -143,7 +143,7 @@ pub async fn create_tap(
 			},
 		],
 	)?;
-	let inet_str = inet_str_output.trim_end_matches("\n");
+	let inet_str = inet_str_output.trim_end_matches('\n');
 
 	if inet_str.is_empty() {
 		//warn!("Could not perform network setup! eth0 interface does not exist!");
@@ -153,7 +153,7 @@ pub async fn create_tap(
 		))));
 	}
 
-	let mut inet_str_split = inet_str.split("/");
+	let mut inet_str_split = inet_str.split('/');
 
 	let mac_str_output = run_command(
 		"/bin/sh",
@@ -166,7 +166,7 @@ pub async fn create_tap(
 			.as_str(),
 		],
 	)?;
-	let mac_str = mac_str_output.trim_end_matches("\n");
+	let mac_str = mac_str_output.trim_end_matches('\n');
 
 	let ip_addr = inet_str_split.next().unwrap();
 	let cidr = inet_str_split.next().unwrap();
@@ -182,7 +182,7 @@ pub async fn create_tap(
 			},
 		],
 	)?;
-	let gateway = gateway_output.trim_end_matches("\n");
+	let gateway = gateway_output.trim_end_matches('\n');
 
 	if do_init {
 		let _ = run_command("ip", vec!["tuntap", "add", "tap100", "mode", "tap"]);

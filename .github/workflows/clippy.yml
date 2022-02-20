@@ -1,0 +1,31 @@
+name: Clippy
+
+on:
+  push:
+    branches:
+      - master
+      - staging
+      - trying
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install cargo-binutils
+        run: cargo install cargo-binutils
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Rustup (apply rust-toolchain.toml)
+        run: rustup show
+      - name: Install NASM
+        run: |
+          sudo apt-get update
+          sudo apt-get install nasm
+      - name: Clippy
+        run: cargo clippy -- -D warnings

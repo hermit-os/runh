@@ -35,8 +35,8 @@ use oci_spec::runtime::Spec;
 
 #[derive(Clone, Copy, Debug)]
 enum InitStage {
-	PARENT,
-	CHILD,
+	Parent,
+	Child,
 }
 
 #[derive(Debug)]
@@ -87,7 +87,7 @@ pub fn init_container() {
 		.parse()
 		.expect("RUNH_HERMIT_CONTAINER was not a boolean value!");
 
-	let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(pipe_fd)) };
+	let mut init_pipe = unsafe { File::from_raw_fd(pipe_fd) };
 	write!(init_pipe, "\0").expect("Unable to write to init-pipe!");
 
 	//Read rootfs from init pipe
@@ -133,7 +133,7 @@ pub fn init_container() {
 		.expect("No spec file given!")
 		.parse()
 		.expect("RUNH_SPEC_FILE was not an integer!");
-	let spec_file = unsafe { File::from_raw_fd(RawFd::from(spec_fd)) };
+	let spec_file = unsafe { File::from_raw_fd(spec_fd) };
 	let spec: Spec = serde_json::from_reader(&spec_file).expect("Unable to read spec file!");
 
 	let linux_spec = spec.linux().as_ref().unwrap();
@@ -172,7 +172,7 @@ pub fn init_container() {
 
 	debug!("jump into init_stage");
 	init_stage(SetupArgs {
-		stage: InitStage::PARENT,
+		stage: InitStage::Parent,
 		init_pipe: init_pipe.into_raw_fd(),
 		config: InitConfig {
 			spec,
@@ -192,8 +192,8 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 
 	let res = unsafe {
 		let combined = nix::sched::CloneFlags::CLONE_PARENT.bits() | libc::SIGCHLD;
-		let ptr = args.stack.as_mut_ptr().offset(args.stack.len() as isize);
-		let ptr_aligned = ptr.offset((ptr as usize % 16) as isize * -1);
+		let ptr = args.stack.as_mut_ptr().add(args.stack.len());
+		let ptr_aligned = ptr.offset(-((ptr as usize % 16) as isize));
 		libc::clone(
 			std::mem::transmute(callback as extern "C" fn(*mut CloneArgs) -> i32),
 			ptr_aligned as *mut libc::c_void,
@@ -210,14 +210,14 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 fn init_stage(args: SetupArgs) -> isize {
 	let linux_spec = args.config.spec.linux().as_ref().unwrap();
 	match args.stage {
-		// InitStage::PARENT => {
+		// InitStage::Parent => {
 		// 	debug!("enter init_stage parent");
 		// 	// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
 		// 	let _ = prctl::set_name("runh:PARENT");
 		// 	let child_pid = clone_process(Box::new(CloneArgs {
 		// 		stack: [0; STACK_SIZE],
 		// 		args: SetupArgs {
-		// 			stage: InitStage::CHILD,
+		// 			stage: InitStage::Child,
 		// 			init_pipe: args.init_pipe,
 		// 			parent_child_sync: args.parent_child_sync,
 		// 			parent_grandchild_sync: args.parent_grandchild_sync,
@@ -248,7 +248,7 @@ fn init_stage(args: SetupArgs) -> isize {
 		// 		.expect("Unable to write to init-pipe!");
 		// 	return 0; // Exit parent
 		// }
-		InitStage::PARENT => {
+		InitStage::Parent => {
 			debug!("enter init_stage parent");
 			// Setting the name is just for debugging purposes so it doesnt cause problems if it fails
 			let _ = prctl::set_name("runh:PARENT");
@@ -272,7 +272,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				"unshare namespaces with cloneflags {:?}",
 				args.config.cloneflags
 			);
-			let mut flags = args.config.cloneflags.clone();
+			let mut flags = args.config.cloneflags;
 			flags.remove(CloneFlags::CLONE_NEWCGROUP);
 			nix::sched::unshare(flags).expect("could not unshare non-user namespaces!");
 
@@ -280,7 +280,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			let child_pid: i32 = clone_process(Box::new(CloneArgs {
 				stack: [0; STACK_SIZE],
 				args: SetupArgs {
-					stage: InitStage::CHILD,
+					stage: InitStage::Child,
 					init_pipe: args.init_pipe,
 					config: args.config,
 				},
@@ -289,14 +289,14 @@ fn init_stage(args: SetupArgs) -> isize {
 			.into();
 
 			debug!("send child PID to runh create");
-			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
+			let mut init_pipe = unsafe { File::from_raw_fd(args.init_pipe) };
 			let written_bytes = init_pipe
 				.write(&child_pid.to_le_bytes())
 				.expect("Unable to write to init-pipe!");
 			debug!("Wrote {} bytes for child-PID", written_bytes);
-			return 0; // Exit child process
+			0 // Exit child process
 		}
-		InitStage::CHILD => {
+		InitStage::Child => {
 			debug!("enter init_stage child");
 			let _ = prctl::set_name("runh:INIT");
 			debug!("Welcome to the container! This is PID {}", Pid::this());
@@ -324,11 +324,11 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//Safe log_pipe_fd, so we can close it after setup is done.
 			let log_pipe_fd: Option<RawFd> = if let Ok(log_fd) = std::env::var("RUNH_LOG_PIPE") {
-				Some(RawFd::from(
+				Some(
 					log_fd
 						.parse::<i32>()
 						.expect("RUNH_LOG_PIPE was not an integer!"),
-				))
+				)
 			} else {
 				warn!("RUNH_LOG_PIPE was not set for init-process, so no log forwarding will happen! Continuing anyway...");
 				None
@@ -360,9 +360,9 @@ fn init_stage(args: SetupArgs) -> isize {
 				if let Some(env) = &process.env() {
 					debug!("load environment variables from config");
 					for var in env {
-						let (name, value) = var.split_once("=").expect(
-							format!("Could not parse environment variable: {}", var).as_str(),
-						);
+						let (name, value) = var.split_once("=").unwrap_or_else(|| {
+							panic!("Could not parse environment variable: {}", var)
+						});
 						std::env::set_var(name, value);
 					}
 				}
@@ -382,17 +382,13 @@ fn init_stage(args: SetupArgs) -> isize {
 				.as_ref()
 				.unwrap()
 			{
-				match ns.typ() {
-					runtime::LinuxNamespaceType::Network => {
-						if ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty()
-						{
-							setup_network = true;
-						} else {
-							network_namespace =
-								Some(ns.path().as_ref().unwrap().to_str().unwrap().to_string());
-						}
+				if ns.typ() == runtime::LinuxNamespaceType::Network {
+					if ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty() {
+						setup_network = true;
+					} else {
+						network_namespace =
+							Some(ns.path().as_ref().unwrap().to_str().unwrap().to_string());
 					}
-					_ => {}
 				}
 			}
 			let tokio_runtime =
@@ -413,17 +409,17 @@ fn init_stage(args: SetupArgs) -> isize {
 			//Setup mounts and devices
 			let setup_dev = if let Some(mounts) = args.config.spec.mounts() {
 				mounts::configure_mounts(
-					&mounts,
+					mounts,
 					&rootfs_path,
 					&bundle_rootfs_path,
-					&args.config.spec.linux().as_ref().unwrap().mount_label(),
+					args.config.spec.linux().as_ref().unwrap().mount_label(),
 				)
 			} else {
 				true
 			};
 
 			if setup_dev {
-				devices::create_devices(&linux_spec.devices(), &rootfs_path);
+				devices::create_devices(linux_spec.devices(), &rootfs_path);
 				devices::setup_ptmx(&rootfs_path);
 				devices::setup_dev_symlinks(&rootfs_path);
 			}
@@ -439,9 +435,9 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//Run pre-start hooks
 			debug!("Signalling parent to run pre-start hooks");
-			let mut init_pipe = unsafe { File::from_raw_fd(RawFd::from(args.init_pipe)) };
+			let mut init_pipe = unsafe { File::from_raw_fd(args.init_pipe) };
 			init_pipe
-				.write(&[crate::consts::INIT_REQ_PRESTART_HOOKS])
+				.write_all(&[crate::consts::INIT_REQ_PRESTART_HOOKS])
 				.expect("Unable to write to init-pipe!");
 
 			let mut sig_buffer = [0u8];
@@ -461,7 +457,7 @@ fn init_stage(args: SetupArgs) -> isize {
 					Ok(config) => {
 						if config.did_init && network_namespace.is_some() {
 							init_pipe
-								.write(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
+								.write_all(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
 								.expect("Unable to write to init-pipe!");
 
 							let network_config_str = serde_json::to_string(&config)
@@ -473,7 +469,7 @@ fn init_stage(args: SetupArgs) -> isize {
 								network_config_str.len()
 							);
 							init_pipe
-								.write(&(network_config_str.len() as usize).to_le_bytes())
+								.write_all(&(network_config_str.len() as usize).to_le_bytes())
 								.expect("Could not write hermit env path size to init pipe!");
 
 							init_pipe
@@ -481,7 +477,7 @@ fn init_stage(args: SetupArgs) -> isize {
 								.expect("Could not write hermit env path to init pipe!");
 						} else {
 							init_pipe
-								.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
+								.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
 								.expect("Unable to write to init-pipe!");
 						}
 						let mut sig_buffer = [0u8];
@@ -500,7 +496,7 @@ fn init_stage(args: SetupArgs) -> isize {
 					Err(x) => {
 						warn!("Hermit network setup could not be completed: {}", x);
 						init_pipe
-							.write(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
+							.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
 							.expect("Unable to write to init-pipe!");
 						let mut sig_buffer = [0u8];
 						init_pipe
@@ -520,13 +516,12 @@ fn init_stage(args: SetupArgs) -> isize {
 				None
 			};
 
-			nix::unistd::chdir(&rootfs_path).expect(
-				format!(
+			nix::unistd::chdir(&rootfs_path).unwrap_or_else(|_| {
+				panic!(
 					"Could not change directory to rootfs path {:?}",
 					rootfs_path
 				)
-				.as_str(),
-			);
+			});
 
 			//TODO: Run create hooks
 
@@ -554,7 +549,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				.terminal()
 				.unwrap_or(false)
 			{
-				let console_socket = unsafe { File::from_raw_fd(RawFd::from(console_fd)) };
+				let console_socket = unsafe { File::from_raw_fd(console_fd) };
 
 				let win_size = args
 					.config
@@ -564,13 +559,11 @@ fn init_stage(args: SetupArgs) -> isize {
 					.unwrap()
 					.console_size()
 					.as_ref()
-					.and_then(|b| {
-						Some(nix::pty::Winsize {
-							ws_row: b.height() as u16,
-							ws_col: b.width() as u16,
-							ws_xpixel: 0,
-							ws_ypixel: 0,
-						})
+					.map(|b| nix::pty::Winsize {
+						ws_row: b.height() as u16,
+						ws_col: b.width() as u16,
+						ws_xpixel: 0,
+						ws_ypixel: 0,
 					});
 
 				console::setup_console(console_socket, win_size.as_ref());
@@ -604,16 +597,15 @@ fn init_stage(args: SetupArgs) -> isize {
 						.create(true)
 						.write(true)
 						.open(&full_path)
-						.expect(
-							format!("Could not create sysctl entry at {:?}", full_path).as_str(),
-						);
-					sysctl_file.write(value.as_bytes()).expect(
-						format!(
+						.unwrap_or_else(|_| {
+							panic!("Could not create sysctl entry at {:?}", full_path)
+						});
+					sysctl_file.write_all(value.as_bytes()).unwrap_or_else(|_| {
+						panic!(
 							"Could not write value {} to sysctl entry at {:?}",
 							value, full_path
 						)
-						.as_str(),
-					);
+					});
 				}
 			}
 
@@ -655,11 +647,11 @@ fn init_stage(args: SetupArgs) -> isize {
 				let kernel_path = app_root.join("rusty-loader");
 				let kernel = kernel_path.as_os_str().to_str().unwrap();
 				let kvm: u32 = env::var("RUNH_KVM")
-					.unwrap_or("0".to_string())
+					.unwrap_or_else(|_| "0".to_string())
 					.parse()
 					.expect("RUNH_KVM was not an unsigned integer!");
 				let micro_vm: u32 = env::var("RUNH_MICRO_VM")
-					.unwrap_or("1".to_string())
+					.unwrap_or_else(|_| "1".to_string())
 					.parse()
 					.expect("RUNH_MICRO_VM was not an unsigned integer!");
 				hermit::get_qemu_args(
@@ -702,7 +694,7 @@ fn init_stage(args: SetupArgs) -> isize {
 
 			//Tell runh create we are ready to execv
 			init_pipe
-				.write(&[crate::consts::INIT_READY_TO_EXECV])
+				.write_all(&[crate::consts::INIT_READY_TO_EXECV])
 				.expect("Unable to write to init-pipe!");
 
 			info!("Runh init setup complete. Now waiting for signal to execv!");
