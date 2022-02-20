@@ -21,7 +21,7 @@ jobs:
       run: |
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
-        apt-get install -y curl gnupg
+        apt-get install -y curl gnupg tree conntrack
         export OS=xUbuntu_20.04
         export VERSION=1.23
         echo "deb [signed-by=/usr/share/keyrings/libcontainers-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
@@ -31,31 +31,34 @@ jobs:
         curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/Release.key | gpg --dearmor -o /usr/share/keyrings/libcontainers-crio-archive-keyring.gpg
         apt-get update
         apt-get install -y cri-o cri-o-runc
-        systemctl start crio
+        crio config --default 1> /etc/crio/crio.conf
+        systemctl start crio.service
     - name: Install crictl
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: apt-get install cri-tools
+    - name: Check CRI-O status
+      shell: sudo bash --noprofile --norc -eo pipefail {0}
+      run: systemctl status crio
+    - name: Pull images
       run: |
-        export VERSION="v1.23.0"
-        curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz
-        sudo tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
-        rm -f crictl-$VERSION-linux-amd64.tar.gz
-    - name: Pull Hermit environment
+        docker pull ghcr.io/hermitcore/hermit_env:latest
+        docker pull ghcr.io/hermitcore/rusty_demo:latest
+        sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
+    - name: Setup Hermit environment
       run: |
-        docker export $(docker create docker.io/library/hello-world:latest) > hermit-env.tar
-        mkdir -p hermit-env
-        tar -xf hermit-env.tar -C hermit-env
-        sudo mkdir -p /run/runh
-        sudo ln -s $PWD/hermit-env /run/runh/hermit
-    - name: Pull container image
+        docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
+        sudo mkdir -p /run/runh/hermit
+        sudo tar -xf hermit-env.tar -C /run/runh/hermit
+    - name: Setup rootfs
       run: |
-        sudo crictl pull docker.io/library/hello-world:latest
-        docker export $(docker create hello-world:latest) > runh-image.tar
+        docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > runh-image.tar
         mkdir -p /home/runner/runh-image/rootfs
         tar -xf runh-image.tar -C /home/runner/runh-image/rootfs
     - name: Create CRI configurations
       run: |
         echo '{ "metadata": { "name": "hermit-sandbox", "namespace": "default", "attempt": 1, "uid": "hdishd83djaidwnduwk28bcsb" }, "log_directory": "/tmp", "linux": { } }' \
             > /home/runner/pod.json
-        echo '{ "metadata": { "name": "httpd" }, "image":{ "image": "docker.io/library/hello-world:latest" }, "log_path":"httpd.log", "linux": { } }' \
+        echo '{ "metadata": { "name": "rusty_demo" }, "image":{ "image": "ghcr.io/hermitcore/rusty_demo:latest" }, "log_path":"rusty_demo.log", "linux": { } }' \
             > /home/runner/container.json
     - uses: hecrj/setup-rust-action@v1
       with: 
@@ -84,15 +87,16 @@ jobs:
     - name: Setup runh with Docker
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh" } },/g' /etc/docker/daemon.json
+        sed -i 's/{/{ "default-runtime": "runc", "runtimes": { "runh": { "path": "\/home\/runner\/.cargo\/bin\/runh", "runtimeArgs": ["-l", "debug", "--hermit-env", "\/run\/runh\/hermit"] } },/g' /etc/docker/daemon.json
         >&2 cat /etc/docker/daemon.json
         systemctl restart docker || systemctl status docker
+    - name: Check Docker runtime
+      run: docker info|grep -i runtime
     - name: Set up runh with CRI-O
       id: runh-crio-setup
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/default_runtime = "runc"/default_runtime = "runh"/g' /etc/crio/crio.conf
-        sed -i 's/\[crio.runtime.runtimes\]/\[crio.runtime.runtimes\]\n\[crio.runtime.runtimes.runh\]\nruntime_path = "\/home\/runner\/.cargo\/bin\/runh"\nruntime_type = "oci"\nruntime_root = "\/run\/runh"/g' /etc/crio/crio.conf
+        sed -i 's/\[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.runh\]\nruntime_path = "\/home\/runner\/.cargo\/bin\/runh"\nruntime_type = "oci"\nruntime_root = "\/run\/runh"\n\n\[crio.runtime.runtimes.runc\]/g' /etc/crio/crio.conf
         systemctl restart crio || systemctl status crio
         >&2 cat /etc/crio/crio.conf
     - name: Test runh standalone
@@ -100,7 +104,8 @@ jobs:
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
       run: |
         cd /home/runner/runh-image
-        runh --root /run/runh spec --bundle . --args /hello
+        tree .
+        runh --root /run/runh spec --bundle . --args /hermit/rusty_demo
         runh --root /run/runh -l debug create  --bundle . runh-container
         runh --root /run/runh -l debug start  runh-container
         sleep 5
@@ -109,7 +114,7 @@ jobs:
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-         crictl runp /home/runner/pod.json > pod.id
+         crictl runp --runtime=runh /home/runner/pod.json > pod.id
          export PODID=$(cat pod.id)        
          crictl create $PODID /home/runner/container.json /home/runner/pod.json > container.id
          export CONTAINERID=$(cat container.id)
@@ -124,7 +129,7 @@ jobs:
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
       run: |
-         docker run --runtime=runh -it -d -p 9975:9975 docker.io/library/hello-world:latest > container.id
+         docker run --runtime=runh -it -d -p 9975:9975 ghcr.io/hermitcore/rusty_demo:latest > container.id
          export CONTAINERID=$(cat container.id)
          sleep 2
          docker logs $CONTAINERID

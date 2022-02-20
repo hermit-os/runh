@@ -196,7 +196,13 @@ pub fn create_tun(rootfs: &PathBuf, uid: Uid, gid: Gid) {
 }
 
 pub fn mount_hermit_devices(rootfs: &PathBuf) {
-	mount_device(rootfs, &PathBuf::from("/dev/kvm"), 10, 232);
+	let kvm: u32 = std::env::var("RUNH_KVM")
+		.unwrap_or("0".to_string())
+		.parse()
+		.expect("RUNH_KVM was not an unsigned integer!");
+	if kvm > 0 {
+		mount_device(rootfs, &PathBuf::from("/dev/kvm"), 10, 232);
+	}
 	mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
 }
 

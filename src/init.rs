@@ -654,6 +654,14 @@ fn init_stage(args: SetupArgs) -> isize {
 					.to_owned();
 				let kernel_path = app_root.join("rusty-loader");
 				let kernel = kernel_path.as_os_str().to_str().unwrap();
+				let kvm: u32 = env::var("RUNH_KVM")
+					.unwrap_or("0".to_string())
+					.parse()
+					.expect("RUNH_KVM was not an unsigned integer!");
+				let micro_vm: u32 = env::var("RUNH_MICRO_VM")
+					.unwrap_or("1".to_string())
+					.parse()
+					.expect("RUNH_MICRO_VM was not an unsigned integer!");
 				hermit::get_qemu_args(
 					kernel,
 					app,
@@ -666,7 +674,8 @@ fn init_stage(args: SetupArgs) -> isize {
 						.args()
 						.as_ref()
 						.unwrap(),
-					true,
+					micro_vm > 0,
+					kvm > 0,
 				)
 			} else {
 				args.config
