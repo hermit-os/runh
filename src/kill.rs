@@ -28,12 +28,11 @@ pub fn kill_container(project_dir: PathBuf, id: Option<&str>, sig: Option<&str>,
 			.unwrap_or_else(|_| panic!("Could not parse signal string {}", sig.unwrap()))
 	};
 
-	nix::sys::signal::kill(Pid::from_raw(pid), signal).expect(
-		format!(
+	nix::sys::signal::kill(Pid::from_raw(pid), signal).unwrap_or_else(|_| {
+		panic!(
 			"Could not send signal {} to container process ID  {}!",
 			sig.unwrap(),
 			pid
 		)
-		.as_str(),
-	);
+	});
 }

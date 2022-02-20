@@ -123,7 +123,7 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			dev.uid().and_then(|f| Some(Uid::from_raw(f))),
 			dev.gid().and_then(|f| Some(Gid::from_raw(f))),
 		)
-		.expect(format!("Could not chown device {:?}!", dev.path()).as_str());
+		.unwrap_or_else(|_| panic!("Could not chown device {:?}!", dev.path()));
 	}
 }
 

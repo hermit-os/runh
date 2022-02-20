@@ -51,7 +51,7 @@ pub fn mount_console(slave_path: &PathBuf) {
 }
 
 pub fn configure_mounts(
-	mounts: &Vec<runtime::Mount>,
+	mounts: &[runtime::Mount],
 	rootfs: &PathBuf,
 	bundle_rootfs: &PathBuf,
 	mount_label: &Option<String>,
