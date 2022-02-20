@@ -25,9 +25,8 @@ jobs:
     - name: Create dockerfile
       run: |
         cat << END > Dockerfile
-        FROM ubuntu:latest
-        RUN apt update
-        RUN apt install -y --no-install-recommends qemu-system-x86 qemu-system-x86-microvm
+        FROM alpine:3.15
+        RUN apk add --no-cache qemu-system-x86_64 qemu-modules
         END
     - name: Build and push container
       uses: docker/build-push-action@v2
