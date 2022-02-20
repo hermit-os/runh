@@ -27,7 +27,7 @@ impl OCIContainer {
 		let mut config = std::path::PathBuf::from(bundle.clone());
 		config.push("config.json");
 		let can_path =
-			std::fs::canonicalize(bundle.clone()).expect("Unable to determine absolute path");
+			std::fs::canonicalize(bundle).expect("Unable to determine absolute path");
 
 		Self {
 			id,

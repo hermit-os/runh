@@ -53,7 +53,7 @@ pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf
 			continue;
 		}
 
-		n = n + 1;
+		n += 1;
 
 		let link = full_path.read_link().expect(
 			format!(

@@ -31,13 +31,11 @@ pub fn delete_container(project_dir: PathBuf, id: Option<&str>, force: bool) {
 		if container_state.status != "stopped" {
 			if !force {
 				panic!("Tried to delete a container that is not stopped!");
+			} else if container_state.status != "creating" {
+				warn!("Container is still running. Force-deleting...");
+				kill::kill_container(project_dir.clone(), id, Some("SIGKILL"), false);
 			} else {
-				if container_state.status != "creating" {
-					warn!("Container is still running. Force-deleting...");
-					kill::kill_container(project_dir.clone(), id, Some("SIGKILL"), false);
-				} else {
-					warn!("Container has not finished creation. Force-deleting...")
-				}
+				warn!("Container has not finished creation. Force-deleting...");
 			}
 		}
 
