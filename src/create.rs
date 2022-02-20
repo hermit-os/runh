@@ -297,7 +297,7 @@ pub fn create_container(
 		rootfs_path_str.len()
 	);
 	init_pipe
-		.write(&(rootfs_path_str.len() as usize).to_le_bytes())
+		.write_all(&(rootfs_path_str.len() as usize).to_le_bytes())
 		.expect("Could not write rootfs-path size to init pipe!");
 
 	init_pipe
@@ -421,7 +421,7 @@ pub fn create_container(
 	}
 
 	init_pipe
-		.write(&[crate::consts::CREATE_ACK_PRESTART_HOOKS])
+		.write_all(&[crate::consts::CREATE_ACK_PRESTART_HOOKS])
 		.expect("Unable to write to init-pipe!");
 
 	//Save hermit network setup

@@ -607,7 +607,7 @@ fn init_stage(args: SetupArgs) -> isize {
 						.expect(
 							format!("Could not create sysctl entry at {:?}", full_path).as_str(),
 						);
-					sysctl_file.write(value.as_bytes()).expect(
+					sysctl_file.write_all(value.as_bytes()).expect(
 						format!(
 							"Could not write value {} to sysctl entry at {:?}",
 							value, full_path
