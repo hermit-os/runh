@@ -28,4 +28,4 @@ jobs:
           sudo apt-get update
           sudo apt-get install nasm
       - name: Clippy
-        run: cargo clippy #-- -D warnings
+        run: cargo clippy -- -D warnings
