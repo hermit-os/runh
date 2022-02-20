@@ -413,7 +413,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			//Setup mounts and devices
 			let setup_dev = if let Some(mounts) = args.config.spec.mounts() {
 				mounts::configure_mounts(
-					&mounts,
+					mounts,
 					&rootfs_path,
 					&bundle_rootfs_path,
 					&args.config.spec.linux().as_ref().unwrap().mount_label(),
@@ -423,7 +423,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			};
 
 			if setup_dev {
-				devices::create_devices(&linux_spec.devices(), &rootfs_path);
+				devices::create_devices(linux_spec.devices(), &rootfs_path);
 				devices::setup_ptmx(&rootfs_path);
 				devices::setup_dev_symlinks(&rootfs_path);
 			}
@@ -604,16 +604,15 @@ fn init_stage(args: SetupArgs) -> isize {
 						.create(true)
 						.write(true)
 						.open(&full_path)
-						.expect(
-							format!("Could not create sysctl entry at {:?}", full_path).as_str(),
-						);
-					sysctl_file.write_all(value.as_bytes()).expect(
-						format!(
+						.unwrap_or_else(|_| {
+							panic!("Could not create sysctl entry at {:?}", full_path)
+						});
+					sysctl_file.write_all(value.as_bytes()).unwrap_or_else(|_| {
+						panic!(
 							"Could not write value {} to sysctl entry at {:?}",
 							value, full_path
 						)
-						.as_str(),
-					);
+					});
 				}
 			}
 
@@ -655,11 +654,11 @@ fn init_stage(args: SetupArgs) -> isize {
 				let kernel_path = app_root.join("rusty-loader");
 				let kernel = kernel_path.as_os_str().to_str().unwrap();
 				let kvm: u32 = env::var("RUNH_KVM")
-					.unwrap_or("0".to_string())
+					.unwrap_or_else(|_| "0".to_string())
 					.parse()
 					.expect("RUNH_KVM was not an unsigned integer!");
 				let micro_vm: u32 = env::var("RUNH_MICRO_VM")
-					.unwrap_or("1".to_string())
+					.unwrap_or_else(|_| "1".to_string())
 					.parse()
 					.expect("RUNH_MICRO_VM was not an unsigned integer!");
 				hermit::get_qemu_args(

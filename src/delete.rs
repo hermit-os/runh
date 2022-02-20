@@ -43,8 +43,9 @@ pub fn delete_container(project_dir: PathBuf, id: Option<&str>, force: bool) {
 
 		let rootfs_overlay_dir = container_dir.join("rootfs/merged");
 		if rootfs_overlay_dir.exists() {
-			nix::mount::umount2(&rootfs_overlay_dir, MntFlags::MNT_DETACH)
-				.expect(format!("Could not unmount overlay at {:?}", rootfs_overlay_dir).as_str());
+			nix::mount::umount2(&rootfs_overlay_dir, MntFlags::MNT_DETACH).unwrap_or_else(|_| {
+				panic!("Could not unmount overlay at {:?}", rootfs_overlay_dir)
+			});
 		}
 
 		// match reset_network_namespace(&container_dir) {

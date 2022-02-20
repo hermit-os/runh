@@ -95,13 +95,12 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			panic!("Device at {:?} cannot be mounted into rootfs!", dev.path());
 		}
 		mounts::create_all_dirs(&PathBuf::from(
-			&destination_resolved.parent().expect(
-				format!(
+			&destination_resolved.parent().unwrap_or_else(|| {
+				panic!(
 					"Could create device at destination {:?} which has no parent dir!",
 					destination_resolved
 				)
-				.as_str(),
-			),
+			}),
 		));
 
 		//Just assume we are not in a user namespace and that mknod will work. Error out if it does not (FIXME ?)
@@ -141,7 +140,7 @@ pub fn setup_ptmx(rootfs: &PathBuf) {
 
 fn verify_device(path: &PathBuf, major_exp: u64, minor_exp: u64) {
 	let stat = nix::sys::stat::stat(path)
-		.expect(format!("Could not stat existing device at {:?}", path).as_str());
+		.unwrap_or_else(|_| panic!("Could not stat existing device at {:?}", path));
 	let major = nix::sys::stat::major(stat.st_rdev);
 	let minor = nix::sys::stat::minor(stat.st_rdev);
 
@@ -168,13 +167,12 @@ pub fn create_tun(rootfs: &PathBuf, uid: Uid, gid: Gid) {
 
 	if !destination_resolved
 		.parent()
-		.expect(
-			format!(
+		.unwrap_or_else(|| {
+			panic!(
 				"Could create device at destination {:?} which has no parent dir!",
 				destination_resolved
 			)
-			.as_str(),
-		)
+		})
 		.exists()
 	{
 		mounts::create_all_dirs(&PathBuf::from(&destination_resolved.parent().unwrap()));
@@ -190,14 +188,14 @@ pub fn create_tun(rootfs: &PathBuf, uid: Uid, gid: Gid) {
 	let mode = Mode::from_bits(0o755u32).unwrap();
 	let device = nix::sys::stat::makedev(10, 200);
 	nix::sys::stat::mknod(&destination_resolved, node_kind, mode, device)
-		.expect(format!("Could not create device {:?}!", &destination_relative).as_str());
+		.unwrap_or_else(|_| panic!("Could not create device {:?}!", &destination_relative));
 	nix::unistd::chown(&destination_resolved, Some(uid), Some(gid))
-		.expect(format!("Could not chown device {:?}!", &destination_relative).as_str());
+		.unwrap_or_else(|_| panic!("Could not chown device {:?}!", &destination_relative));
 }
 
 pub fn mount_hermit_devices(rootfs: &PathBuf) {
 	let kvm: u32 = std::env::var("RUNH_KVM")
-		.unwrap_or("0".to_string())
+		.unwrap_or_else(|_| "0".to_string())
 		.parse()
 		.expect("RUNH_KVM was not an unsigned integer!");
 	if kvm > 0 {
@@ -211,13 +209,12 @@ fn mount_device(rootfs: &PathBuf, destination_rel: &PathBuf, major: u64, minor: 
 
 	if !destination
 		.parent()
-		.expect(
-			format!(
+		.unwrap_or_else(|| {
+			panic!(
 				"Could create device at destination {:?} which has no parent dir!",
 				destination
 			)
-			.as_str(),
-		)
+		})
 		.exists()
 	{
 		mounts::create_all_dirs(&PathBuf::from(&destination.parent().unwrap()));
@@ -233,13 +230,12 @@ fn mount_device(rootfs: &PathBuf, destination_rel: &PathBuf, major: u64, minor: 
 			.create(true)
 			.write(true)
 			.open(&destination)
-			.expect(
-				format!(
+			.unwrap_or_else(|_| {
+				panic!(
 					"Could not create destination for bind mount at {:?}",
 					destination
 				)
-				.as_str(),
-			);
+			});
 	}
 
 	mounts::mount_with_flags(

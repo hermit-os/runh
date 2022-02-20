@@ -41,13 +41,12 @@ pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf
 			continue;
 		}
 
-		let metadata = full_path.symlink_metadata().expect(
-			format!(
+		let metadata = full_path.symlink_metadata().unwrap_or_else(|_| {
+			panic!(
 				"Could not get metadata for mount path component at {:?}!",
 				full_path
 			)
-			.as_str(),
-		);
+		});
 		if !metadata.file_type().is_symlink() {
 			destination_resolved.push(subpath);
 			continue;
@@ -55,13 +54,12 @@ pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf
 
 		n += 1;
 
-		let link = full_path.read_link().expect(
-			format!(
+		let link = full_path.read_link().unwrap_or_else(|_| {
+			panic!(
 				"Could not read symlink for mount path component at {:?}!",
 				full_path
 			)
-			.as_str(),
-		);
+		});
 
 		if link.is_absolute() {
 			destination_resolved.clear();
@@ -109,12 +107,13 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 		},
 	);
 
-	nix::mount::mount::<str, str, str, str>(None, "/", None, mount_flags, None).expect(
-		format!(
-			"Could not mount rootfs with given MsFlags {:?}",
-			mount_flags
-		)
-		.as_str(),
+	nix::mount::mount::<str, str, str, str>(None, "/", None, mount_flags, None).unwrap_or_else(
+		|_| {
+			panic!(
+				"Could not mount rootfs with given MsFlags {:?}",
+				mount_flags
+			)
+		},
 	);
 
 	//TODO: Make parent mount private (?)
@@ -131,7 +130,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 		bind_mount_flags,
 		None,
 	)
-	.expect(format!("Could not bind-mount rootfs at {:?}", rootfs_path).as_str());
+	.unwrap_or_else(|_| panic!("Could not bind-mount rootfs at {:?}", &rootfs_path));
 }
 
 pub fn set_rootfs_read_only() {

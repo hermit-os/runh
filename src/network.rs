@@ -153,7 +153,7 @@ pub async fn create_tap(
 		))));
 	}
 
-	let mut inet_str_split = inet_str.split("/");
+	let mut inet_str_split = inet_str.split('/');
 
 	let mac_str_output = run_command(
 		"/bin/sh",

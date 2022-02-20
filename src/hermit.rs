@@ -5,12 +5,12 @@ use std::{fs, path::PathBuf};
 
 pub fn is_hermit_app(path: &PathBuf) -> bool {
 	let buffer = fs::read(path)
-		.expect(format!("Could not read content of args-executable at {:?}", path).as_str());
+		.unwrap_or_else(|_| panic!("Could not read content of args-executable at {:?}", path));
 	if let Ok(elf) = elf::Elf::parse(&buffer) {
-		return elf.header.e_ident[EI_OSABI] == 0xFF;
+		elf.header.e_ident[EI_OSABI] == 0xFF
 	} else {
 		warn!("Could not parse content of args-executable in ELF format. Might be a script file. Assuming non-hermit container...");
-		return false;
+		false
 	}
 }
 
@@ -41,7 +41,7 @@ pub fn get_qemu_args(
 	kernel: &str,
 	app: &str,
 	netconf: &Option<network::HermitNetworkConfig>,
-	app_args: &Vec<String>,
+	app_args: &[String],
 	micro_vm: bool,
 	kvm: bool,
 ) -> Vec<String> {
@@ -122,9 +122,7 @@ pub fn get_qemu_args(
 	if let Some(network_config) = netconf.as_ref() {
 		args_string = format!(
 			"-ip {} -gateway {} -mask {}",
-			network_config.ip.to_string(),
-			network_config.gateway.to_string(),
-			network_config.mask.to_string()
+			network_config.ip, network_config.gateway, network_config.mask
 		);
 	}
 

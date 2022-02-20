@@ -4,7 +4,7 @@ use std::path::PathBuf;
 pub fn find_in_path(mut path_relative: PathBuf, rootfs: Option<&PathBuf>) -> Option<PathBuf> {
 	if path_relative.is_absolute() {
 		if let Some(rootfs_path) = rootfs {
-			path_relative = rootfs::resolve_in_rootfs(&path_relative, &rootfs_path);
+			path_relative = rootfs::resolve_in_rootfs(&path_relative, rootfs_path);
 		}
 		if path_relative.exists() {
 			Some(path_relative)
@@ -20,7 +20,7 @@ pub fn find_in_path(mut path_relative: PathBuf, rootfs: Option<&PathBuf>) -> Opt
 				|rootfs_path| {
 					rootfs::resolve_in_rootfs(
 						&PathBuf::from(folder).join(&path_relative),
-						&rootfs_path,
+						rootfs_path,
 					)
 				},
 			);

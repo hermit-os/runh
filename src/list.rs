@@ -13,7 +13,7 @@ fn get_unix_username(uid: u32) -> Option<String> {
 	unsafe {
 		let mut result = ptr::null_mut();
 		let amt = match libc::sysconf(libc::_SC_GETPW_R_SIZE_MAX) {
-			n if n < 0 => 512 as usize,
+			n if n < 0 => 512usize,
 			n => n as usize,
 		};
 		let mut buf = Vec::with_capacity(amt);
@@ -62,7 +62,7 @@ pub fn list_containers(project_dir: PathBuf) {
 					let datetime: DateTime<Utc> = Utc.ymd(1970, 1, 1).and_hms(0, 0, 0);
 					datetime
 				};
-				let user = get_unix_username(metadata.uid()).unwrap_or("".to_string());
+				let user = get_unix_username(metadata.uid()).unwrap_or_else(|| "".to_string());
 				let status = if uts.exists() { "RUNNING" } else { "CREATED" };
 
 				if let Ok(container) = serde_json::from_str::<OCIContainer>(&contents) {

@@ -196,7 +196,7 @@ pub fn create_container(
 			nix::mount::MsFlags::empty(),
 			Some(datastr.as_str()),
 		)
-		.expect(format!("Could not create overlay-fs at {:?}", overlay_root).as_str());
+		.unwrap_or_else(|_| panic!("Could not create overlay-fs at {:?}", overlay_root));
 		rootfs_path_abs = std::fs::canonicalize(overlay_mergeddir).unwrap();
 	}
 
@@ -231,13 +231,12 @@ pub fn create_container(
 
 	//Setup console socket
 	let socket_fds = if let Some(console_socket_path) = console_socket {
-		let stream = UnixStream::connect(PathBuf::from(console_socket_path)).expect(
-			format!(
+		let stream = UnixStream::connect(PathBuf::from(console_socket_path)).unwrap_or_else(|_| {
+			panic!(
 				"Could not connect to socket named by console-socket path at {}",
 				console_socket_path
 			)
-			.as_str(),
-		);
+		});
 		let sock_stream_fd = stream.into_raw_fd();
 		//let socket_fd_copy =
 		//	nix::unistd::dup(sock_stream_fd).expect("Could not duplicate unix stream fd!");
@@ -386,9 +385,9 @@ pub fn create_container(
 				}
 				if let Some(env) = &hook.env() {
 					for var in env {
-						let (name, value) = var.split_once("=").expect(
-							format!("Could not parse environment variable: {}", var).as_str(),
-						);
+						let (name, value) = var.split_once("=").unwrap_or_else(|| {
+							panic!("Could not parse environment variable: {}", var)
+						});
 						cmd.env(name, value);
 					}
 				}
@@ -397,9 +396,9 @@ pub fn create_container(
 				}
 				cmd.stderr(std::process::Stdio::piped());
 				cmd.stdin(std::process::Stdio::piped());
-				let mut child = cmd.spawn().expect(
-					format!("Unable to spawn prestart hook process {:?}", hook.path()).as_str(),
-				);
+				let mut child = cmd.spawn().unwrap_or_else(|_| {
+					panic!("Unable to spawn prestart hook process {:?}", hook.path())
+				});
 				write!(
 					child.stdin.take().unwrap(),
 					"{}",
@@ -434,7 +433,7 @@ pub fn create_container(
 		match sig_buffer[0] {
 			crate::consts::INIT_REQ_SKIP_NETWORK_SETUP => {
 				init_pipe
-					.write(&[crate::consts::CREATE_ACK_NETWORK_SETUP])
+					.write_all(&[crate::consts::CREATE_ACK_NETWORK_SETUP])
 					.expect("Unable to write to init-pipe!");
 			}
 			crate::consts::INIT_REQ_SAVE_NETWORK_SETUP => {
@@ -460,7 +459,7 @@ pub fn create_container(
 					.expect("Could not write to hermit network file!");
 
 				init_pipe
-					.write(&[crate::consts::CREATE_ACK_NETWORK_SETUP])
+					.write_all(&[crate::consts::CREATE_ACK_NETWORK_SETUP])
 					.expect("Unable to write to init-pipe!");
 			}
 			_ => {

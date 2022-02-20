@@ -9,14 +9,13 @@ pub fn join_namespaces(namespaces: &[runtime::LinuxNamespace]) {
 	for ns in namespaces {
 		if let Some(path) = ns.path().as_ref() {
 			configured_ns.push(ConfiguredNamespace(
-				File::open(path).expect(
-					format!(
+				File::open(path).unwrap_or_else(|_| {
+					panic!(
 						"failed to open {:?} for NS {:?}",
 						ns.path().as_ref().unwrap(),
 						ns.typ()
 					)
-					.as_str(),
-				),
+				}),
 				ns,
 			));
 		} else {
@@ -31,6 +30,6 @@ pub fn join_namespaces(namespaces: &[runtime::LinuxNamespace]) {
 		debug!("joining namespace {:?}", ns_config.1);
 		let flags = flags::get_cloneflag(ns_config.1.typ());
 		nix::sched::setns(ns_config.0.as_raw_fd(), flags)
-			.expect(format!("Failed to join NS {:?}", ns_config.1).as_str());
+			.unwrap_or_else(|_| panic!("Failed to join NS {:?}", ns_config.1));
 	}
 }
