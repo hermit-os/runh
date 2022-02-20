@@ -1,9 +1,9 @@
 use crate::network;
 use goblin::elf;
 use goblin::elf64::header::EI_OSABI;
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, path::Path};
 
-pub fn is_hermit_app(path: &PathBuf) -> bool {
+pub fn is_hermit_app(path: &Path) -> bool {
 	let buffer = fs::read(path)
 		.unwrap_or_else(|_| panic!("Could not read content of args-executable at {:?}", path));
 	if let Ok(elf) = elf::Elf::parse(&buffer) {
@@ -14,18 +14,18 @@ pub fn is_hermit_app(path: &PathBuf) -> bool {
 	}
 }
 
-pub fn create_environment(_path: &PathBuf) {
+pub fn create_environment(_path: &Path) {
 	//TODO
 }
 
-pub fn get_environment_path(project_dir: &PathBuf, hermit_env_path: &Option<&str>) -> PathBuf {
+pub fn get_environment_path(project_dir: &Path, hermit_env_path: &Option<&str>) -> PathBuf {
 	match hermit_env_path {
 		Some(s) => PathBuf::from(s),
 		None => project_dir.join("hermit"),
 	}
 }
 
-pub fn prepare_environment(project_dir: &PathBuf, hermit_env_path: &Option<&str>) {
+pub fn prepare_environment(project_dir: &Path, hermit_env_path: &Option<&str>) {
 	let environment_path = get_environment_path(project_dir, hermit_env_path);
 	if !environment_path.exists() {
 		create_environment(&environment_path);

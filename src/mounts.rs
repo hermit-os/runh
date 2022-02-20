@@ -7,6 +7,7 @@ use std::{
 		prelude::{AsRawFd, OpenOptionsExt},
 	},
 	path::PathBuf,
+	path::Path,
 };
 
 use crate::rootfs;
@@ -28,7 +29,7 @@ impl Default for MountOptions {
 	}
 }
 
-pub fn mount_console(slave_path: &PathBuf) {
+pub fn mount_console(slave_path: &Path) {
 	let old_umask = nix::sys::stat::umask(Mode::empty());
 	let _ = OpenOptions::new()
 		.mode(0o666)
@@ -38,7 +39,7 @@ pub fn mount_console(slave_path: &PathBuf) {
 		.open("/dev/console")
 		.expect("Could not create /dev/console");
 
-	nix::mount::mount::<PathBuf, str, str, str>(
+	nix::mount::mount::<Path, str, str, str>(
 		Some(slave_path),
 		"/dev/console",
 		Some("bind"),
@@ -52,8 +53,8 @@ pub fn mount_console(slave_path: &PathBuf) {
 
 pub fn configure_mounts(
 	mounts: &[runtime::Mount],
-	rootfs: &PathBuf,
-	bundle_rootfs: &PathBuf,
+	rootfs: &Path,
+	bundle_rootfs: &Path,
 	mount_label: &Option<String>,
 ) -> bool {
 	let mut setup_dev = true;
@@ -71,7 +72,7 @@ pub fn configure_mounts(
 		let mount_options = mount
 			.options()
 			.as_ref()
-			.and_then(|options| Some(parse_mount_options(options)))
+			.map(|options| parse_mount_options(options))
 			.unwrap_or_default();
 
 		let destination_resolved = rootfs::resolve_in_rootfs(mount.destination(), rootfs);
@@ -87,11 +88,8 @@ pub fn configure_mounts(
 			let is_bind_mount = mount
 				.options()
 				.as_ref()
-				.and_then(|options| {
-					Some(
-						options.contains(&"bind".to_string())
-							|| options.contains(&"rbind".to_string()),
-					)
+				.map(|options| {
+					options.contains(&"bind".to_string()) || options.contains(&"rbind".to_string())
 				})
 				.unwrap_or(false);
 			if is_bind_mount {
@@ -159,7 +157,7 @@ pub fn configure_mounts(
 					//TODO: Relabel source (?)
 				}
 			} else {
-				match mount.typ().as_ref().and_then(|x| Some(x.as_str())) {
+				match mount.typ().as_ref().map(|x| x.as_str()) {
 					Some("sysfs") | Some("proc") => {
 						if !destination_resolved.exists() || destination_resolved.is_dir() {
 							create_all_dirs(&destination_resolved);
@@ -282,16 +280,16 @@ pub fn configure_mounts(
 
 fn remount(
 	device: &str,
-	mount_src: &PathBuf,
-	mount_dest: &PathBuf,
-	full_dest: &PathBuf,
+	mount_src: &Path,
+	mount_dest: &Path,
+	full_dest: &Path,
 	mut options: MountOptions,
 ) {
 	let procfd = open_trough_procfd(device, mount_dest, full_dest, &mut options);
 	let procfd_path = PathBuf::from("/proc/self/fd").join(procfd.as_raw_fd().to_string());
 
 	options.mount_flags.insert(MsFlags::MS_REMOUNT);
-	nix::mount::mount::<PathBuf, PathBuf, str, str>(
+	nix::mount::mount::<Path, Path, str, str>(
 		Some(mount_src),
 		&procfd_path,
 		Some(device.to_owned().as_str()),
@@ -308,9 +306,9 @@ fn remount(
 
 pub fn mount_with_flags(
 	device: &str,
-	mount_src: &PathBuf,
-	mount_dest: &PathBuf,
-	full_dest: &PathBuf,
+	mount_src: &Path,
+	mount_dest: &Path,
+	full_dest: &Path,
 	mut options: MountOptions,
 	_label: Option<&String>,
 ) {
@@ -318,12 +316,12 @@ pub fn mount_with_flags(
 	let procfd = open_trough_procfd(device, mount_dest, full_dest, &mut options);
 	let procfd_path = PathBuf::from("/proc/self/fd").join(procfd.as_raw_fd().to_string());
 
-	nix::mount::mount::<PathBuf, PathBuf, str, str>(
+	nix::mount::mount::<Path, Path, str, str>(
 		Some(mount_src),
 		&procfd_path,
 		Some(device.to_owned().as_str()),
 		options.mount_flags,
-		options.data.as_ref().map(|f| f.as_str()),
+		options.data.as_deref(),
 	)
 	.unwrap_or_else(|_| {
 		panic!(
@@ -354,8 +352,8 @@ pub fn mount_with_flags(
 
 fn open_trough_procfd(
 	device: &str,
-	mount_dest: &PathBuf,
-	full_dest: &PathBuf,
+	mount_dest: &Path,
+	full_dest: &Path,
 	options: &mut MountOptions,
 ) -> File {
 	if mount_dest.to_path_buf() == PathBuf::from("/dev") || device == "tmpfs" {
@@ -391,7 +389,7 @@ fn open_trough_procfd(
 	dest_file
 }
 
-pub fn create_all_dirs(dest: &PathBuf) {
+pub fn create_all_dirs(dest: &Path) {
 	DirBuilder::new()
 		.recursive(true)
 		.mode(0o755)

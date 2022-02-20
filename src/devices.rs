@@ -1,4 +1,4 @@
-use std::{convert::TryInto, fs::OpenOptions, os::unix::prelude::OpenOptionsExt, path::PathBuf};
+use std::{convert::TryInto, fs::OpenOptions, os::unix::prelude::OpenOptionsExt, path::PathBuf, path::Path};
 
 use nix::{
 	mount::MsFlags,
@@ -9,7 +9,7 @@ use oci_spec::runtime;
 
 use crate::{mounts, rootfs};
 
-pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: &PathBuf) {
+pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: &Path) {
 	let mut default_devices = vec![
 		runtime::LinuxDeviceBuilder::default()
 			.path(PathBuf::from("/dev/null"))
@@ -75,12 +75,12 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 
 	let all_devices = spec_devices
 		.as_ref()
-		.and_then(|spec_devices| {
+		.map(|spec_devices| {
 			let mut all_devices = spec_devices.clone();
 			all_devices.append(&mut default_devices);
 			all_devices.sort_by_key(|f| f.path().clone());
 			all_devices.dedup_by_key(|f| f.path().clone());
-			Some(all_devices)
+			all_devices
 		})
 		.unwrap_or(default_devices);
 
@@ -117,17 +117,17 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			dev.minor().try_into().unwrap(),
 		);
 		nix::sys::stat::mknod(&destination_resolved, node_kind, mode, device)
-			.expect(format!("Could not create device {:?}!", dev.path()).as_str());
+			.unwrap_or_else(|_| panic!("Could not create device {:?}!", dev.path()));
 		nix::unistd::chown(
 			&destination_resolved,
-			dev.uid().and_then(|f| Some(Uid::from_raw(f))),
-			dev.gid().and_then(|f| Some(Gid::from_raw(f))),
+			dev.uid().map(Uid::from_raw),
+			dev.gid().map(Gid::from_raw),
 		)
 		.unwrap_or_else(|_| panic!("Could not chown device {:?}!", dev.path()));
 	}
 }
 
-pub fn setup_ptmx(rootfs: &PathBuf) {
+pub fn setup_ptmx(rootfs: &Path) {
 	let ptmx_path = rootfs.join("dev/ptmx");
 	if ptmx_path.is_dir() {
 		std::fs::remove_dir(&ptmx_path).expect("Could not remove existing /dev/ptmx dir!");
@@ -138,7 +138,7 @@ pub fn setup_ptmx(rootfs: &PathBuf) {
 		.expect("Could not symlink pts/ptmx to /dev/ptmx!");
 }
 
-fn verify_device(path: &PathBuf, major_exp: u64, minor_exp: u64) {
+fn verify_device(path: &Path, major_exp: u64, minor_exp: u64) {
 	let stat = nix::sys::stat::stat(path)
 		.unwrap_or_else(|_| panic!("Could not stat existing device at {:?}", path));
 	let major = nix::sys::stat::major(stat.st_rdev);
@@ -155,7 +155,7 @@ fn verify_device(path: &PathBuf, major_exp: u64, minor_exp: u64) {
 	}
 }
 
-pub fn create_tun(rootfs: &PathBuf, uid: Uid, gid: Gid) {
+pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
 	let destination_relative = PathBuf::from("/dev/net/tun");
 	let destination_resolved = rootfs::resolve_in_rootfs(&destination_relative, rootfs);
 	if !destination_resolved.starts_with(&rootfs) {
@@ -165,16 +165,13 @@ pub fn create_tun(rootfs: &PathBuf, uid: Uid, gid: Gid) {
 		);
 	}
 
-	if !destination_resolved
-		.parent()
-		.unwrap_or_else(|| {
-			panic!(
-				"Could create device at destination {:?} which has no parent dir!",
-				destination_resolved
-			)
-		})
-		.exists()
-	{
+	let parent = destination_resolved.parent().unwrap_or_else(|| {
+		panic!(
+			"Could create device at destination {:?} which has no parent dir!",
+			destination_resolved
+		)
+	});
+	if !parent.exists() {
 		mounts::create_all_dirs(&PathBuf::from(&destination_resolved.parent().unwrap()));
 	}
 
@@ -193,7 +190,7 @@ pub fn create_tun(rootfs: &PathBuf, uid: Uid, gid: Gid) {
 		.unwrap_or_else(|_| panic!("Could not chown device {:?}!", &destination_relative));
 }
 
-pub fn mount_hermit_devices(rootfs: &PathBuf) {
+pub fn mount_hermit_devices(rootfs: &Path) {
 	let kvm: u32 = std::env::var("RUNH_KVM")
 		.unwrap_or_else(|_| "0".to_string())
 		.parse()
@@ -204,19 +201,16 @@ pub fn mount_hermit_devices(rootfs: &PathBuf) {
 	mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
 }
 
-fn mount_device(rootfs: &PathBuf, destination_rel: &PathBuf, major: u64, minor: u64) {
+fn mount_device(rootfs: &Path, destination_rel: &Path, major: u64, minor: u64) {
 	let destination = rootfs::resolve_in_rootfs(destination_rel, rootfs);
+	let parent = destination.parent().unwrap_or_else(|| {
+		panic!(
+			"Could create device at destination {:?} which has no parent dir!",
+			destination
+		)
+	});
 
-	if !destination
-		.parent()
-		.unwrap_or_else(|| {
-			panic!(
-				"Could create device at destination {:?} which has no parent dir!",
-				destination
-			)
-		})
-		.exists()
-	{
+	if !parent.exists() {
 		mounts::create_all_dirs(&PathBuf::from(&destination.parent().unwrap()));
 	}
 
@@ -252,7 +246,7 @@ fn mount_device(rootfs: &PathBuf, destination_rel: &PathBuf, major: u64, minor: 
 	);
 }
 
-pub fn setup_dev_symlinks(rootfs: &PathBuf) {
+pub fn setup_dev_symlinks(rootfs: &Path) {
 	// if PathBuf::from("/proc/kcore").exists() {
 	// 	nix::unistd::symlinkat("/proc/kcore", None, &rootfs.join("dev/core"))
 	// 		.expect("Could not symlink /proc/kcore to /dev/core");

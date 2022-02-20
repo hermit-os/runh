@@ -7,13 +7,12 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::prelude::FromRawFd;
-use std::os::unix::prelude::RawFd;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 enum LogFormat {
-	TEXT,
-	JSON,
+	Text,
+	Json,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -38,10 +37,10 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 		let mut file_lock = self.log_file.lock().unwrap();
 		if self.enabled(record.metadata()) {
 			let message = match self.log_format {
-				LogFormat::TEXT => {
+				LogFormat::Text => {
 					format!("[{}] {}", record.level(), record.args())
 				}
-				LogFormat::JSON => to_string(&LogEntry {
+				LogFormat::Json => to_string(&LogEntry {
 					level: record.level().as_str().to_ascii_lowercase(),
 					msg: format!("{}", record.args()),
 					time: Local::now().to_rfc3339(),
@@ -107,14 +106,14 @@ pub fn init(
 			if let Ok(log_fd) = std::env::var("RUNH_LOG_PIPE") {
 				let pipe_fd: i32 = log_fd.parse().expect("RUNH_LOG_PIPE was not an integer!");
 				has_log_pipe = true;
-				unsafe { Some(File::from_raw_fd(RawFd::from(pipe_fd))) }
+				unsafe { Some(File::from_raw_fd(pipe_fd)) }
 			} else {
 				None
 			}
 		});
-	let log_format = log_format.map_or(LogFormat::TEXT, |fmt| match fmt {
-		"json" => LogFormat::JSON,
-		_ => LogFormat::TEXT,
+	let log_format = log_format.map_or(LogFormat::Text, |fmt| match fmt {
+		"json" => LogFormat::Json,
+		_ => LogFormat::Text,
 	});
 
 	let logger: RunhLogger<File> = RunhLogger {

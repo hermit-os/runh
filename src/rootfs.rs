@@ -2,6 +2,7 @@ use std::{
 	fs::OpenOptions,
 	os::unix::prelude::{AsRawFd, OpenOptionsExt},
 	path::PathBuf,
+	path::Path,
 };
 
 use nix::mount::{MntFlags, MsFlags};
@@ -9,8 +10,8 @@ use oci_spec::runtime::Spec;
 use path_clean::PathClean;
 
 // This function should be equivalent to cyphar/filepath-securejoin/SecureJoinVFS
-pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf {
-	let mut unsafe_path = destination_rel.clone();
+pub fn resolve_in_rootfs(destination_rel: &Path, rootfs: &Path) -> PathBuf {
+	let mut unsafe_path = destination_rel.to_path_buf();
 	let mut destination_resolved = PathBuf::new();
 	let mut n = 0;
 
@@ -64,7 +65,7 @@ pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf
 		if link.is_absolute() {
 			destination_resolved.clear();
 		}
-		unsafe_path = link.join(unsafe_path);
+		unsafe_path = link.join(unsafe_path).to_path_buf();
 	}
 	rootfs
 		.join(
@@ -77,7 +78,7 @@ pub fn resolve_in_rootfs(destination_rel: &PathBuf, rootfs: &PathBuf) -> PathBuf
 		.clean()
 }
 
-pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
+pub fn mount_rootfs(spec: &Spec, rootfs_path: &Path) {
 	let mut mount_flags = MsFlags::empty();
 	mount_flags.insert(MsFlags::MS_REC);
 	mount_flags.insert(
@@ -87,7 +88,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 			.unwrap()
 			.rootfs_propagation()
 			.as_ref()
-			.and_then(|x| Some(x.as_str()))
+			.map(|x| x.as_str())
 		{
 			Some("shared") => MsFlags::MS_SHARED,
 			Some("slave") => MsFlags::MS_SLAVE,
@@ -123,7 +124,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &PathBuf) {
 
 	debug!("Mounting rootfs at {:?}", rootfs_path);
 
-	nix::mount::mount::<PathBuf, PathBuf, str, str>(
+	nix::mount::mount::<Path, Path, str, str>(
 		Some(rootfs_path),
 		rootfs_path,
 		Some("bind"),
@@ -149,7 +150,7 @@ pub fn set_rootfs_read_only() {
 	} //The first mount should not fail unless we are in a user namespace so technically the content of the if-block is unreachable.
 }
 
-pub fn pivot_root(rootfs: &PathBuf) {
+pub fn pivot_root(rootfs: &Path) {
 	let old_root = OpenOptions::new()
 		.read(true)
 		.write(false)

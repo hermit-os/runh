@@ -24,6 +24,7 @@ use std::str::FromStr;
 
 use crate::container::OCIContainer;
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_container(
 	project_dir: PathBuf,
 	id: Option<&str>,
