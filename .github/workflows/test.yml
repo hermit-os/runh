@@ -38,9 +38,7 @@ jobs:
       run: apt-get install cri-tools
     - name: Check CRI-O status
       shell: sudo bash --noprofile --norc -eo pipefail {0}
-      run: |
-        systemctl status crio
-        ls -la /etc/crio
+      run: systemctl status crio
     - name: Pull images
       run: |
         docker pull ghcr.io/hermitcore/hermit_env:latest
