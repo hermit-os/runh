@@ -318,7 +318,7 @@ pub fn create_container(
 			bundle_rootfs_path_str.len()
 		);
 		init_pipe
-			.write(&(bundle_rootfs_path_str.len() as usize).to_le_bytes())
+			.write_all(&(bundle_rootfs_path_str.len() as usize).to_le_bytes())
 			.expect("Could not write hermit env path size to init pipe!");
 
 		init_pipe
