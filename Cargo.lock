@@ -1007,9 +1007,9 @@ dependencies = [
 
 [[package]]
 name = "oci-spec"
-version = "0.5.2"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63f0f82a50257e72a6f13616dc093f3d0874294629bf8b7d0bc2a098e3db324f"
+checksum = "6b409d52fff741f330914aa6b8ab73e9113607bb13fbc09f95cdb04d16c8dd5d"
 dependencies = [
  "derive_builder",
  "getset",
