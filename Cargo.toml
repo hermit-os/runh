@@ -28,7 +28,7 @@ dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git" }
 chrono = "0.4.19"
 libc = "0.2.118"
 cgroups-rs = "0.2.6"
-oci-spec = "0.5.2"
+oci-spec = "0.5.4"
 nix = "0.23"
 command-fds = "0.2"
 capctl = "0.2"
