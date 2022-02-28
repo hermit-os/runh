@@ -15,7 +15,7 @@ runh is a CLI tool for spawning and running RustyHermit containers.
 
 [dependencies]
 anyhow = "1.0.55"
-clap = { version = "2.33.3", features = ["wrap_help", "suggestions"] }
+clap = { version = "3.1.2", features = ["wrap_help", "suggestions"] }
 colour = { version = "0.6" }
 derive_builder = { version = "0.10.2" }
 futures = "0.3.17"
