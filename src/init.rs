@@ -360,7 +360,7 @@ fn init_stage(args: SetupArgs) -> isize {
 				if let Some(env) = &process.env() {
 					debug!("load environment variables from config");
 					for var in env {
-						let (name, value) = var.split_once("=").unwrap_or_else(|| {
+						let (name, value) = var.split_once('=').unwrap_or_else(|| {
 							panic!("Could not parse environment variable: {}", var)
 						});
 						std::env::set_var(name, value);
@@ -590,7 +590,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			//TODO: Write sysctl keys
 			if let Some(sysctl) = args.config.spec.linux().as_ref().unwrap().sysctl().as_ref() {
 				for (key, value) in sysctl {
-					let key_path = key.replace(".", "/");
+					let key_path = key.replace('.', "/");
 					let full_path = PathBuf::from("/proc/sys").join(key_path);
 					let mut sysctl_file = OpenOptions::new()
 						.mode(0o644)
