@@ -386,7 +386,7 @@ pub fn create_container(
 				}
 				if let Some(env) = &hook.env() {
 					for var in env {
-						let (name, value) = var.split_once("=").unwrap_or_else(|| {
+						let (name, value) = var.split_once('=').unwrap_or_else(|| {
 							panic!("Could not parse environment variable: {}", var)
 						});
 						cmd.env(name, value);
