@@ -42,7 +42,7 @@ pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
 	let mut links = handle
 		.link()
 		.get()
-		.set_name_filter("lo".to_string())
+		.match_name("lo".to_string())
 		.execute();
 	if let Some(link) = links.try_next().await? {
 		handle.link().set(link.header.index).up().execute().await?
@@ -122,7 +122,7 @@ pub async fn create_tap(
 	let mut links = handle
 		.link()
 		.get()
-		.set_name_filter("tap100".to_string())
+		.match_name("tap100".to_string())
 		.execute();
 	let read_interface = if links.try_next().await?.is_none() {
 		do_init = true;
