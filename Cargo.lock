@@ -190,9 +190,9 @@ dependencies = [
 
 [[package]]
 name = "command-fds"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce4fa2ae5d054372861b9746080bc3798227b79b62e27966f13f4d3a76e57013"
+checksum = "35cc819120a403d0eb3d0c404088c5a9f9b06066147ec69a21919fbc0833ef68"
 dependencies = [
  "nix 0.22.0",
  "thiserror",
