@@ -30,7 +30,7 @@ jobs:
         RUN apt install -y --no-install-recommends qemu-system-x86 qemu-system-x86-microvm
         END
     - name: Build and push container
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
         context: .
         push: true
