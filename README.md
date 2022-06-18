@@ -35,3 +35,7 @@ default args parameter in the spec from `sh` to `/hermit/rusty_demo`:
 $ runh spec -b data
 $ sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
 ```
+
+## Funding
+
+The development of this project was partially funded by the European Union’s Horizon 2020 research and innovation programme under grant agreement No 957246 - IoT-NGIN.
