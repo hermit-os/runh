@@ -4,7 +4,6 @@ use dkregistry::v2::Client;
 use futures::future::try_join_all;
 use std::str::FromStr;
 use std::string::String;
-use tokio::runtime::Runtime;
 
 async fn async_pull(
 	registry: &str,
@@ -72,12 +71,16 @@ pub fn pull_registry(
 	password: Option<&str>,
 	bundle: Option<&str>,
 ) {
-	Runtime::new()
-		.expect("Unable to create Tokio runtime")
-		.block_on(async_pull(
-			registry,
-			username.map(|s| s.to_string()),
-			password.map(|s| s.to_string()),
-			bundle.map(|s| s.to_string()),
-		));
+	debug!("Initialize tokio runtime");
+	let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
+		.enable_all()
+		.build()
+		.expect("Could not spawn new tokio runtime!");
+
+	tokio_runtime.block_on(async_pull(
+		registry,
+		username.map(|s| s.to_string()),
+		password.map(|s| s.to_string()),
+		bundle.map(|s| s.to_string()),
+	));
 }

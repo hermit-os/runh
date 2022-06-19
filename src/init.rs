@@ -55,7 +55,7 @@ struct SetupArgs {
 	config: InitConfig,
 }
 
-const STACK_SIZE: usize = 16384 * 2;
+const STACK_SIZE: usize = 64 * 1024;
 
 #[repr(align(16))]
 struct CloneArgs {
@@ -193,7 +193,7 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 	let res = unsafe {
 		let combined = nix::sched::CloneFlags::CLONE_PARENT.bits() | libc::SIGCHLD;
 		let ptr = args.stack.as_mut_ptr().add(args.stack.len());
-		let ptr_aligned = ptr.offset(-((ptr as usize % 16) as isize));
+		let ptr_aligned = ptr.offset(-16 - ((ptr as usize % 16) as isize));
 		libc::clone(
 			std::mem::transmute(callback as extern "C" fn(*mut CloneArgs) -> i32),
 			ptr_aligned as *mut libc::c_void,
@@ -351,10 +351,13 @@ fn init_stage(args: SetupArgs) -> isize {
 					.expect("RUNH_CONSOLE was not an integer!");
 			}
 
-			unsafe {
-				libc::clearenv();
+			debug!("Clear environment");
+			let env_vars = env::vars();
+			for (key, _value) in env_vars {
+				env::remove_var(key);
 			}
 
+			debug!("Setup environment variables");
 			// Set environment variables found in the config
 			if let Some(process) = &args.config.spec.process() {
 				if let Some(env) = &process.env() {
@@ -363,11 +366,14 @@ fn init_stage(args: SetupArgs) -> isize {
 						let (name, value) = var.split_once('=').unwrap_or_else(|| {
 							panic!("Could not parse environment variable: {}", var)
 						});
-						std::env::set_var(name, value);
+						if !name.is_empty() {
+							std::env::set_var(name, value);
+						}
 					}
 				}
 			}
 
+			debug!("Search for network namespace");
 			//TODO: Create new session keyring if requested
 			//TODO: Setup network and routing
 			let mut setup_network = false;
@@ -391,19 +397,24 @@ fn init_stage(args: SetupArgs) -> isize {
 					}
 				}
 			}
-			let tokio_runtime =
-				tokio::runtime::Runtime::new().expect("Could not spawn new tokio runtime!");
+
+			debug!("Initialize tokio runtime");
+			let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
+				.enable_all()
+				.build()
+				.expect("Could not spawn new tokio runtime!");
 
 			if setup_network {
+				debug!("Setup lo interface");
 				tokio_runtime
 					.block_on(network::set_lo_up())
 					.expect("Could not setup network lo interface!");
 			}
 
+			//Mount root file system
+			debug!("Moount rootfs");
 			let rootfs_path = PathBuf::from(args.config.rootfs);
 			let bundle_rootfs_path = PathBuf::from(args.config.bundle_rootfs);
-
-			//Mount root file system
 			rootfs::mount_rootfs(&args.config.spec, &rootfs_path);
 
 			//Setup mounts and devices
@@ -419,6 +430,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			};
 
 			if setup_dev {
+				debug!("Setup devices");
 				devices::create_devices(linux_spec.devices(), &rootfs_path);
 				devices::setup_ptmx(&rootfs_path);
 				devices::setup_dev_symlinks(&rootfs_path);
