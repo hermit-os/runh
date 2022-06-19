@@ -362,6 +362,7 @@ fn init_stage(args: SetupArgs) -> isize {
 			if let Some(process) = &args.config.spec.process() {
 				if let Some(env) = &process.env() {
 					debug!("Load environment variables from config");
+					debug!("Len {}", env.len());
 					for var in env {
 						debug!("var {}", var);
 						let (name, value) = var.split_once('=').unwrap_or_else(|| {
