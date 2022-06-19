@@ -361,8 +361,9 @@ fn init_stage(args: SetupArgs) -> isize {
 			// Set environment variables found in the config
 			if let Some(process) = &args.config.spec.process() {
 				if let Some(env) = &process.env() {
-					debug!("load environment variables from config");
+					debug!("Load environment variables from config");
 					for var in env {
+						debug!("var {}", var);
 						let (name, value) = var.split_once('=').unwrap_or_else(|| {
 							panic!("Could not parse environment variable: {}", var)
 						});
