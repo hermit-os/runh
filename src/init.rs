@@ -368,7 +368,7 @@ fn init_stage(args: SetupArgs) -> isize {
 						let (name, value) = var.split_once('=').unwrap_or_else(|| {
 							panic!("Could not parse environment variable: {}", var)
 						});
-						debug!("name {}, valie", name, value);
+						debug!("name {}, value {}", name, value);
 						if !name.is_empty() {
 							std::env::set_var(name, value);
 						}
