@@ -14,9 +14,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: hecrj/setup-rust-action@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          rust-version: stable
+          profile: minimal
+          toolchain: stable
+          override: true
           components: rustfmt
       - name: Checkout
         uses: actions/checkout@v3

@@ -16,6 +16,13 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
       - name: Install cargo-binutils
         run: cargo install cargo-binutils
       - uses: actions/checkout@v3
