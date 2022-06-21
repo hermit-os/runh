@@ -192,8 +192,8 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 
 	let res = unsafe {
 		let combined = nix::sched::CloneFlags::CLONE_PARENT.bits() | libc::SIGCHLD;
-		let ptr = args.stack.as_mut_ptr().add(args.stack.len());
-		let ptr_aligned = ptr.offset(-16 - ((ptr as usize % 16) as isize));
+		let ptr = args.stack.as_mut_ptr().add(STACK_SIZE - 16);
+		let ptr_aligned = ptr.offset(-((ptr as usize % 16) as isize));
 		libc::clone(
 			std::mem::transmute(callback as extern "C" fn(*mut CloneArgs) -> i32),
 			ptr_aligned as *mut libc::c_void,
