@@ -198,7 +198,7 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 			std::mem::transmute(callback as extern "C" fn(*mut CloneArgs) -> i32),
 			ptr_aligned as *mut libc::c_void,
 			combined,
-			Box::into_raw(args) as *mut _ as *mut libc::c_void,
+			std::mem::transmute(Box::into_raw(args)),
 		)
 	};
 
