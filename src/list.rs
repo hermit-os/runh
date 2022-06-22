@@ -1,13 +1,14 @@
 use crate::container::OCIContainer;
-use chrono::offset::Utc;
-use chrono::DateTime;
-use chrono::TimeZone;
+use std::convert::TryInto;
 use std::ffi::CStr;
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use std::{mem, ptr};
+use time::format_description;
+use time::OffsetDateTime;
 
 fn get_unix_username(uid: u32) -> Option<String> {
 	unsafe {
@@ -56,14 +57,17 @@ pub fn list_containers(project_dir: PathBuf) {
 					.expect("Unable to read container spec");
 				let metadata = file.metadata().expect("Unable to get file information");
 				let created = if let Ok(systime) = metadata.created() {
-					let datetime: DateTime<Utc> = DateTime::from(systime);
-					datetime
+					let duration = systime.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+					OffsetDateTime::from_unix_timestamp(duration.as_secs().try_into().unwrap())
+						.unwrap()
 				} else {
-					let datetime: DateTime<Utc> = Utc.ymd(1970, 1, 1).and_hms(0, 0, 0);
-					datetime
+					OffsetDateTime::UNIX_EPOCH
 				};
 				let user = get_unix_username(metadata.uid()).unwrap_or_else(|| "".to_string());
 				let status = if uts.exists() { "RUNNING" } else { "CREATED" };
+				let format_desc =
+					format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
+						.unwrap();
 
 				if let Ok(container) = serde_json::from_str::<OCIContainer>(&contents) {
 					println!(
@@ -72,7 +76,7 @@ pub fn list_containers(project_dir: PathBuf) {
 						"",
 						status,
 						container.bundle(),
-						created.format("%Y-%m-%d %H:%M:%S"),
+						created.format(&format_desc).unwrap(),
 						user
 					);
 				}

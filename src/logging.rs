@@ -1,4 +1,3 @@
-use chrono::Local;
 use log::{set_boxed_logger, set_max_level, Level, LevelFilter, Metadata, Record};
 use serde::Deserialize;
 use serde::Serialize;
@@ -9,6 +8,8 @@ use std::io::Write;
 use std::os::unix::prelude::FromRawFd;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 enum LogFormat {
 	Text,
@@ -43,7 +44,7 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 				LogFormat::Json => to_string(&LogEntry {
 					level: record.level().as_str().to_ascii_lowercase(),
 					msg: format!("{}", record.args()),
-					time: Local::now().to_rfc3339(),
+					time: OffsetDateTime::now_utc().format(&Rfc3339).unwrap(),
 				})
 				.unwrap(),
 			};
@@ -125,7 +126,10 @@ pub fn init(
 				OpenOptions::new()
 					.create(true)
 					.write(true)
-					.open(project_dir.join(format!("log-{}.json", Local::now().to_rfc3339())))
+					.open(project_dir.join(format!(
+						"log-{}.json",
+						OffsetDateTime::now_utc().format(&Rfc3339).unwrap()
+					)))
 					.expect("Could not open tmp log file!"),
 			)
 		}),
