@@ -55,7 +55,7 @@ struct SetupArgs {
 	config: InitConfig,
 }
 
-const STACK_SIZE: usize = 128 * 1024;
+const STACK_SIZE: usize = 32 * 1024;
 
 #[repr(align(16))]
 struct CloneArgs {
