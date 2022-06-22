@@ -60,11 +60,6 @@ jobs:
             > /home/runner/pod.json
         echo '{ "metadata": { "name": "rusty_demo" }, "image":{ "image": "ghcr.io/hermitcore/rusty_demo:latest" }, "log_path":"rusty_demo.log", "linux": { } }' \
             > /home/runner/container.json
-    - uses: hecrj/setup-rust-action@v1
-      with: 
-         rust-version: ${{ matrix.rust }}
-         components: ${{ matrix.components || '' }}
-         targets: ${{ matrix.targets || '' }}
     - uses: actions/checkout@v3
       with:
          lfs: true
