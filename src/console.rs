@@ -1,8 +1,8 @@
-use std::{fs::File, os::unix::prelude::AsRawFd, path::PathBuf};
+use std::{fs::File, io::IoSlice, os::unix::prelude::AsRawFd, path::PathBuf};
 
 use nix::{
 	fcntl::OFlag,
-	sys::{socket::ControlMessage, socket::MsgFlags, stat::Mode, uio::IoVec},
+	sys::{socket::ControlMessage, socket::MsgFlags, stat::Mode},
 };
 
 use crate::mounts;
@@ -31,9 +31,9 @@ pub fn setup_console(console_socket: File, win_size: Option<&nix::pty::Winsize>)
 	mounts::mount_console(&PathBuf::from(&slave_name));
 
 	//Send master fd over console_socket
-	nix::sys::socket::sendmsg(
+	nix::sys::socket::sendmsg::<()>(
 		console_socket.as_raw_fd(),
-		&[IoVec::from_slice("/dev/ptmx".as_bytes())],
+		&[IoSlice::new("/dev/ptmx".as_bytes())],
 		&[ControlMessage::ScmRights(&[master_fd.as_raw_fd()])],
 		MsgFlags::empty(),
 		None,
