@@ -16,16 +16,5 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - name: Install cargo-binutils
-        run: cargo install cargo-binutils
       - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Rustup (apply rust-toolchain.toml)
-        run: rustup show
-      - name: Install NASM
-        run: |
-          sudo apt-get update
-          sudo apt-get install nasm
-      - name: Clippy
-        run: cargo clippy -- -D warnings
+      - run: cargo clippy -- -D warnings
