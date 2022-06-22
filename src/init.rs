@@ -186,9 +186,7 @@ pub fn init_container() {
 
 fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 	extern "C" fn callback(cb: *mut CloneArgs) -> i32 {
-		unsafe {
-			(*(*cb).child_func)((*cb).args.clone()) as i32
-		}
+		unsafe { (*(*cb).child_func)((*cb).args.clone()) as i32 }
 	}
 
 	let res = unsafe {
