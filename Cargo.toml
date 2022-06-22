@@ -34,7 +34,7 @@ command-fds = "0.2"
 capctl = "0.2"
 path-clean = "0.1.0"
 procfs = "0.12.0"
-rtnetlink = "0.8.1"
+rtnetlink = "0.9.1"
 
 [dependencies.goblin]
 version = "0.5.1"
