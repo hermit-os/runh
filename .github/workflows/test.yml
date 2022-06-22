@@ -64,12 +64,12 @@ jobs:
       with:
          lfs: true
     - name: Restore Cargo cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: /home/runner/.cargo
         key: cargo-cache
     # - name: Restore runh target cache
-    #   uses: actions/cache@v2
+    #   uses: actions/cache@v3
     #   with:
     #     path: ${{ github.workspace }}/target
     #     key: runh-target-cache
