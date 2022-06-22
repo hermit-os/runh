@@ -39,7 +39,7 @@ enum InitStage {
 	Child,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct InitConfig {
 	spec: Spec,
 	cloneflags: CloneFlags,
@@ -48,7 +48,7 @@ struct InitConfig {
 	is_hermit_container: bool,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct SetupArgs {
 	stage: InitStage,
 	init_pipe: RawFd,
@@ -187,7 +187,9 @@ pub fn init_container() {
 fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 	extern "C" fn callback(data: *mut CloneArgs) -> i32 {
 		let cb = unsafe { Box::<CloneArgs>::from_raw(data) };
-		(*cb.child_func)(cb.args) as i32
+		let ret = (*cb.child_func)(cb.args.clone()) as i32;
+		Box::leak(cb);
+		ret
 	}
 
 	let res = unsafe {
