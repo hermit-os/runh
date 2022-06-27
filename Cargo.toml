@@ -34,7 +34,7 @@ command-fds = "0.2"
 capctl = "0.2"
 path-clean = "0.1.0"
 procfs = { version = "0.12.0", default-features = false, features = ["flate2"] }
-rtnetlink = "0.9.1"
+rtnetlink = "0.10.1"
 
 [dependencies.goblin]
 version = "0.5.1"
