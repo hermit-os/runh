@@ -33,7 +33,7 @@ nix = "0.24"
 command-fds = "0.2"
 capctl = "0.2"
 path-clean = "0.1.0"
-procfs = { version = "0.13.0", default-features = false, features = ["flate2"] }
+procfs = { version = "0.13.2", default-features = false, features = ["flate2"] }
 rtnetlink = "0.10.1"
 
 [dependencies.goblin]
