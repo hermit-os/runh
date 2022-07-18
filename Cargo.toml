@@ -37,6 +37,6 @@ procfs = { version = "0.13.0", default-features = false, features = ["flate2"] }
 rtnetlink = "0.10.1"
 
 [dependencies.goblin]
-version = "0.5.1"
+version = "0.5.3"
 default-features = false
 features = ["elf64", "elf32", "endian_fd", "std"]
