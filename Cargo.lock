@@ -146,7 +146,7 @@ checksum = "cf5525f2cf84d5113ab26bfb6474180eb63224b4b1e4be31ee87be4098f11399"
 dependencies = [
  "libc",
  "log",
- "nix 0.24.1",
+ "nix 0.24.2",
  "regex",
 ]
 
@@ -982,9 +982,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.24.1"
+version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f17df307904acd05aa8e32e97bb20f2a0df1728bbc2d771ae8f9a90463441e9"
+checksum = "195cdbc1741b8134346d515b3a56a1c94b0912758009cfd53f99ea0f57b065fc"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -1339,7 +1339,7 @@ dependencies = [
  "log",
  "netlink-packet-route",
  "netlink-proto",
- "nix 0.24.1",
+ "nix 0.24.2",
  "thiserror",
  "tokio",
 ]
@@ -1361,7 +1361,7 @@ dependencies = [
  "goblin",
  "libc",
  "log",
- "nix 0.24.1",
+ "nix 0.24.2",
  "oci-spec",
  "path-clean",
  "procfs",
