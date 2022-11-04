@@ -14,24 +14,24 @@ description = "runh is a CLI tool for spawning and running RustyHermit container
 
 [dependencies]
 anyhow = "1.0"
+capctl = "0.2"
+cgroups-rs = "0.2"
 clap = { version = "2.33", features = ["wrap_help", "suggestions"] }
 colour = { version = "0.6" }
-derive_builder = { version = "0.11" }
-futures = "0.3"
-tokio = { version = "1.20", features = ["full"] }
-getset = "0.1"
-log = { version = "0.4", features = ["serde", "std"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git" }
-time = { version = "0.3", features = ["std", "formatting", "local-offset"] }
-libc = "0.2"
-cgroups-rs = "0.2"
-oci-spec = "0.5"
-nix = "0.24"
 command-fds = "0.2"
-capctl = "0.2"
+derive_builder = { version = "0.11" }
+dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git" }
+futures = "0.3"
+getset = "0.1"
+goblin = { version = "0.5", default-features = false, features = ["elf64", "elf32", "endian_fd", "std"] }
+libc = "0.2"
+log = { version = "0.4", features = ["serde", "std"] }
+nix = "0.24"
+oci-spec = "0.5"
 path-clean = "0.1"
 procfs = { version = "0.14", default-features = false, features = ["flate2"] }
 rtnetlink = "0.11"
-goblin = { version = "0.5", default-features = false, features = ["elf64", "elf32", "endian_fd", "std"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+time = { version = "0.3", features = ["std", "formatting", "local-offset"] }
+tokio = { version = "1.20", features = ["full"] }
