@@ -54,7 +54,7 @@ const STACK_SIZE: usize = 16384 * 2;
 struct CloneArgs {
 	stack: [u8; STACK_SIZE],
 	args: SetupArgs,
-	child_func: fn(SetupArgs) -> isize,
+	child_func: fn(SetupArgs) -> !,
 }
 
 pub fn init_container() {
@@ -177,9 +177,9 @@ pub fn init_container() {
 }
 
 fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
-	extern "C" fn callback(data: *mut CloneArgs) -> i32 {
+	extern "C" fn callback(data: *mut CloneArgs) -> ! {
 		let cb: Box<CloneArgs> = unsafe { Box::from_raw(data) };
-		(cb.child_func)(cb.args) as i32
+		(cb.child_func)(cb.args)
 	}
 
 	let res = unsafe {
@@ -187,7 +187,7 @@ fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 		let ptr = args.stack.as_mut_ptr().add(args.stack.len() - 16);
 		let ptr_aligned = ptr.offset(-((ptr as usize % 16) as isize));
 		libc::clone(
-			std::mem::transmute(callback as extern "C" fn(*mut CloneArgs) -> i32),
+			std::mem::transmute(callback as extern "C" fn(*mut CloneArgs) -> !),
 			ptr_aligned as *mut libc::c_void,
 			combined,
 			Box::into_raw(args) as *mut libc::c_void,
@@ -249,7 +249,7 @@ fn init_stage_parent(args: SetupArgs) -> isize {
 	0 // Exit child process
 }
 
-fn init_stage_child(args: SetupArgs) -> isize {
+fn init_stage_child(args: SetupArgs) -> ! {
 	let linux_spec = args.config.spec.linux().as_ref().unwrap();
 	debug!("Enter init_stage child");
 	let _ = prctl::set_name("runh:INIT");
