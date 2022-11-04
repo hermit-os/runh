@@ -13,7 +13,7 @@ use crate::{console, devices, hermit, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
-use nix::sched::CloneFlags;
+use nix::sched::{self, CloneFlags};
 use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime;
 use oci_spec::runtime::Spec;
@@ -49,13 +49,6 @@ struct SetupArgs {
 }
 
 const STACK_SIZE: usize = 16384 * 2;
-
-#[repr(align(16))]
-struct CloneArgs {
-	stack: [u8; STACK_SIZE],
-	args: SetupArgs,
-	child_func: fn(SetupArgs) -> !,
-}
 
 pub fn init_container() {
 	// This implements the init process functionality,
@@ -176,29 +169,6 @@ pub fn init_container() {
 	});
 }
 
-fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
-	extern "C" fn callback(data: *mut CloneArgs) -> ! {
-		let cb: Box<CloneArgs> = unsafe { Box::from_raw(data) };
-		(cb.child_func)(cb.args)
-	}
-
-	let res = unsafe {
-		let combined = nix::sched::CloneFlags::CLONE_PARENT.bits() | libc::SIGCHLD;
-		let ptr = args.stack.as_mut_ptr().add(args.stack.len() - 16);
-		let ptr_aligned = ptr.offset(-((ptr as usize % 16) as isize));
-		libc::clone(
-			std::mem::transmute(callback as extern "C" fn(*mut CloneArgs) -> !),
-			ptr_aligned as *mut libc::c_void,
-			combined,
-			Box::into_raw(args) as *mut libc::c_void,
-		)
-	};
-
-	nix::errno::Errno::result(res)
-		.map(nix::unistd::Pid::from_raw)
-		.expect("Could not clone parent process!")
-}
-
 fn init_stage_parent(args: SetupArgs) -> isize {
 	let linux_spec = args.config.spec.linux().as_ref().unwrap();
 
@@ -230,15 +200,16 @@ fn init_stage_parent(args: SetupArgs) -> isize {
 	nix::sched::unshare(flags).expect("could not unshare non-user namespaces!");
 
 	// Fork again into new PID-Namespace and send PID to parent
-	let child_pid: i32 = clone_process(Box::new(CloneArgs {
-		stack: [0; STACK_SIZE],
-		args: SetupArgs {
+	let stack = vec![0; STACK_SIZE].leak();
+	let cb = Box::new(|| {
+		init_stage_child(SetupArgs {
 			init_pipe: args.init_pipe,
-			config: args.config,
-		},
-		child_func: init_stage_child,
-	}))
-	.into();
+			config: args.config.clone(),
+		})
+	});
+	let child_pid = sched::clone(cb, stack, CloneFlags::CLONE_PARENT, Some(libc::SIGCHLD))
+		.unwrap()
+		.as_raw();
 
 	debug!("Send child PID to runh create");
 	let mut init_pipe = unsafe { File::from_raw_fd(args.init_pipe) };
