@@ -1,15 +1,16 @@
 [package]
 name = "runh"
-authors = ["Stefan Lankes <slankes@eonerc.rwth-aachen>", "Jonas Schroeder <jonas.schroeder1@rwth-aachen>"]
+authors = [
+    "Stefan Lankes <slankes@eonerc.rwth-aachen>",
+    "Jonas Schroeder <jonas.schroeder1@rwth-aachen>",
+]
 license = "MIT/Apache-2.0"
 version = "0.1.0"
 keywords = ["oci", "container", "unikernel"]
 categories = ["operating system", "container", "virtualization"]
 readme = "README.md"
 edition = "2018"
-description = """
-runh is a CLI tool for spawning and running RustyHermit containers.
-"""
+description = "runh is a CLI tool for spawning and running RustyHermit containers."
 
 [dependencies]
 anyhow = "1.0"
