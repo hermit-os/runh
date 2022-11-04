@@ -54,7 +54,7 @@ const STACK_SIZE: usize = 16384 * 2;
 struct CloneArgs {
 	stack: [u8; STACK_SIZE],
 	args: SetupArgs,
-	child_func: Box<dyn Fn(SetupArgs) -> isize>,
+	child_func: fn(SetupArgs) -> isize,
 }
 
 pub fn init_container() {
@@ -179,7 +179,7 @@ pub fn init_container() {
 fn clone_process(mut args: Box<CloneArgs>) -> nix::unistd::Pid {
 	extern "C" fn callback(data: *mut CloneArgs) -> i32 {
 		let cb: Box<CloneArgs> = unsafe { Box::from_raw(data) };
-		(*cb.child_func)(cb.args) as i32
+		(cb.child_func)(cb.args) as i32
 	}
 
 	let res = unsafe {
@@ -236,7 +236,7 @@ fn init_stage_parent(args: SetupArgs) -> isize {
 			init_pipe: args.init_pipe,
 			config: args.config,
 		},
-		child_func: Box::new(init_stage_child),
+		child_func: init_stage_child,
 	}))
 	.into();
 
