@@ -943,7 +943,20 @@ dependencies = [
  "bitflags",
  "cfg-if",
  "libc",
+]
+
+[[package]]
+name = "nix"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e322c04a9e3440c327fca7b6c8a63e6890a32fa2ad689db972425f07e0d22abb"
+dependencies = [
+ "autocfg",
+ "bitflags",
+ "cfg-if",
+ "libc",
  "memoffset",
+ "pin-utils",
 ]
 
 [[package]]
@@ -1311,7 +1324,7 @@ dependencies = [
  "goblin",
  "libc",
  "log",
- "nix 0.24.2",
+ "nix 0.25.0",
  "oci-spec",
  "path-clean",
  "procfs",
