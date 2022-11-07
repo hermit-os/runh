@@ -20,7 +20,7 @@ command-fds = "0.2"
 dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git" }
 futures = "0.3"
 getset = "0.1"
-goblin = { version = "0.5", default-features = false, features = ["elf64", "elf32", "endian_fd"] }
+goblin = { version = "0.6", default-features = false, features = ["elf64", "elf32", "endian_fd"] }
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
 nix = "0.24"
