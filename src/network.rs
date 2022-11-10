@@ -1,4 +1,5 @@
 use futures::TryStreamExt;
+use rtnetlink::{packet::ErrorMessage, Error::NetlinkError};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt, net::Ipv4Addr, process::Stdio};
 
@@ -120,12 +121,27 @@ pub async fn create_tap(
 		.get()
 		.match_name("tap100".to_string())
 		.execute();
-	let read_interface = if links.try_next().await?.is_none() {
-		do_init = true;
-		"eth0"
-	} else {
-		warn!("Tap device already exists in current network namespace. Trying to read configuration from dummy device...");
-		"dummy0"
+
+	let read_interface = match links.try_next().await {
+		Ok(Some(_)) => {
+			warn!("Tap device already exists in current network namespace. Trying to read configuration from dummy device...");
+			"dummy0"
+		}
+		Ok(None) => {
+			warn!("Tap device exists in namespace but cannot be read. Trying to re-do setup...");
+			do_init = true;
+			"eth0"
+		}
+		Err(NetlinkError(ErrorMessage { code, .. })) if code.abs() == libc::ENODEV => {
+			// This is the expected case that is triggered when the tap device does not exist in the current namespace
+			do_init = true;
+			"eth0"
+		}
+		Err(err) => {
+			return Err(Box::new(HermitNetworkError::from(format!(
+				"Tap100 interface detection failed: {err}"
+			))));
+		}
 	};
 
 	let inet_str_output = run_command(
