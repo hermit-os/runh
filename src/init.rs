@@ -496,6 +496,8 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	// - Apply capabilities
 
 	//Verify the args[0] executable exists
+	let mut tap_fd = None;
+
 	let exec_args = if args.config.is_hermit_container {
 		let app = args
 			.config
@@ -523,6 +525,16 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.unwrap_or_else(|_| "1".to_string())
 			.parse()
 			.expect("RUNH_MICRO_VM was not an unsigned integer!");
+
+		tap_fd = hermit_network_config.as_ref().and_then(|conf| {
+			let tap_file = OpenOptions::new()
+				.read(true)
+				.write(true)
+				.open(format!("/dev/tap{}", conf.macvtap_index))
+				.expect("Could not open tap device file!");
+			Some(tap_file.into_raw_fd())
+		});
+
 		hermit::get_qemu_args(
 			kernel,
 			app,
@@ -537,6 +549,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				.unwrap(),
 			micro_vm > 0,
 			kvm > 0,
+			&tap_fd,
 		)
 	} else {
 		args.config
@@ -590,6 +603,10 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		cmd.args(exec_args.get(1..).unwrap());
 	}
 	cmd.envs(std::env::vars());
+
+	if let Some(tap_fd) = tap_fd {
+		cmd.preserved_fds(vec![tap_fd]);
+	}
 	let error = cmd.exec();
 
 	//This point should not be reached on successful exec
