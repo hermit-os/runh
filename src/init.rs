@@ -122,6 +122,7 @@ pub fn init_container() {
 		.expect("RUNH_SPEC_FILE was not an integer!");
 	let spec_file = unsafe { File::from_raw_fd(spec_fd) };
 	let spec: Spec = serde_json::from_reader(&spec_file).expect("Unable to read spec file!");
+	drop(spec_file);
 
 	let linux_spec = spec.linux().as_ref().unwrap();
 
@@ -596,6 +597,10 @@ fn init_stage_child(args: SetupArgs) -> ! {
 
 	write!(exec_fifo, "\0").expect("Could not write to exec fifo!");
 	drop(exec_fifo);
+
+	// Close file descriptors inherited from runh create
+	nix::unistd::close(fifo_fd.into()).expect("Could not close exec fifo O_PATH fd!");
+	nix::unistd::close(init_pipe.into_raw_fd()).expect("Could not close init pipe fd!");
 
 	let mut cmd = std::process::Command::new(exec_path_abs);
 	cmd.arg0(exec_args.get(0).unwrap());
