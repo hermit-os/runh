@@ -1,6 +1,8 @@
 use futures::TryStreamExt;
-use rtnetlink::{packet::ErrorMessage, Error::NetlinkError};
-use serde::{Deserialize, Serialize};
+use nix::sys::stat::SFlag;
+use rtnetlink::packet::{address, link, route, ErrorMessage, MACVLAN_MODE_BRIDGE};
+use rtnetlink::Error::NetlinkError;
+use std::path::PathBuf;
 use std::{error::Error, fmt, net::Ipv4Addr, process::Stdio};
 
 #[derive(Debug)]
@@ -8,15 +10,13 @@ struct HermitNetworkError {
 	details: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct HermitNetworkConfig {
 	pub ip: Ipv4Addr,
 	pub gateway: Ipv4Addr,
 	pub mask: Ipv4Addr,
 	pub mac: String,
-	pub network_namespace: Option<String>,
-	#[serde(skip)]
-	pub did_init: bool,
+	pub macvtap_index: u32,
 }
 
 impl From<String> for HermitNetworkError {
@@ -102,9 +102,7 @@ fn run_command(command: &str, args: Vec<&str>) -> Result<String, Box<dyn std::er
  This function is in large parts inspired by the runnc code for Nabla Containers
  https://github.com/nabla-containers/runnc/blob/46ededdd75a03cecf05936a1a45d5d0096a2b117/nabla-lib/network/network_linux.go
 */
-pub async fn create_tap(
-	network_namespace: Option<String>,
-) -> Result<HermitNetworkConfig, Box<dyn std::error::Error>> {
+pub async fn create_tap() -> Result<HermitNetworkConfig, Box<dyn std::error::Error>> {
 	//FIXME: This is extremely ugly
 	let mut do_init = false;
 
@@ -251,8 +249,7 @@ pub async fn create_tap(
 		ip: ip_addr.parse().unwrap(),
 		gateway: gateway.parse().unwrap(),
 		mask,
-		mac: mac_str.to_string(),
-		network_namespace,
-		did_init: do_init,
+		mac: mac_address.unwrap(),
+		macvtap_index: macvtap_index.unwrap()
 	})
 }

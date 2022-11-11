@@ -1,8 +1,5 @@
 pub const INIT_REQ_PRESTART_HOOKS: u8 = 0x10;
 pub const CREATE_ACK_PRESTART_HOOKS: u8 = 0x11;
 pub const INIT_READY_TO_EXECV: u8 = 0xAA;
-pub const INIT_REQ_SAVE_NETWORK_SETUP: u8 = 0x20;
-pub const INIT_REQ_SKIP_NETWORK_SETUP: u8 = 0x22;
-pub const CREATE_ACK_NETWORK_SETUP: u8 = 0x21;
 
 pub const OCI_STATE_VERSION: &str = "1.0.2";

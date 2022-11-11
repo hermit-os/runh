@@ -13,6 +13,7 @@ use crate::{console, devices, hermit, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
+use command_fds::CommandFdExt;
 use nix::sched::{self, CloneFlags};
 use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime;
@@ -298,7 +299,6 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	//TODO: Create new session keyring if requested
 	//TODO: Setup network and routing
 	let mut setup_network = false;
-	let mut network_namespace: Option<String> = None;
 	for ns in args
 		.config
 		.spec
@@ -312,8 +312,6 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		if ns.typ() == runtime::LinuxNamespaceType::Network {
 			if ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty() {
 				setup_network = true;
-			} else {
-				network_namespace = Some(ns.path().as_ref().unwrap().to_str().unwrap().to_string());
 			}
 		}
 	}
@@ -377,70 +375,6 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		);
 	}
 
-	let hermit_network_config = if args.config.is_hermit_container {
-		match tokio_runtime.block_on(network::create_tap(network_namespace.clone())) {
-			Ok(config) => {
-				if config.did_init && network_namespace.is_some() {
-					init_pipe
-						.write_all(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
-						.expect("Unable to write to init-pipe!");
-
-					let network_config_str = serde_json::to_string(&config)
-						.expect("Could not serialize hermit network config!");
-
-					debug!(
-						"Write hermit network config {} (lenght {}) to init-pipe!",
-						network_config_str,
-						network_config_str.len()
-					);
-					init_pipe
-						.write_all(&(network_config_str.len() as usize).to_le_bytes())
-						.expect("Could not write hermit env path size to init pipe!");
-
-					init_pipe
-						.write_all(network_config_str.as_bytes())
-						.expect("Could not write hermit env path to init pipe!");
-				} else {
-					init_pipe
-						.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
-						.expect("Unable to write to init-pipe!");
-				}
-				let mut sig_buffer = [0u8];
-				init_pipe
-					.read_exact(&mut sig_buffer)
-					.expect("Could not read from init pipe!");
-				if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
-					panic!(
-						"Received invalid signal from runh create! Expected {:x}, got {:x}",
-						crate::consts::CREATE_ACK_NETWORK_SETUP,
-						sig_buffer[0]
-					);
-				}
-				Some(config)
-			}
-			Err(x) => {
-				warn!("Hermit network setup could not be completed: {}", x);
-				init_pipe
-					.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
-					.expect("Unable to write to init-pipe!");
-				let mut sig_buffer = [0u8];
-				init_pipe
-					.read_exact(&mut sig_buffer)
-					.expect("Could not read from init pipe!");
-				if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
-					panic!(
-						"Received invalid signal from runh create! Expected {:x}, got {:x}",
-						crate::consts::CREATE_ACK_NETWORK_SETUP,
-						sig_buffer[0]
-					);
-				}
-				None
-			}
-		}
-	} else {
-		None
-	};
-
 	nix::unistd::chdir(&rootfs_path).unwrap_or_else(|_| {
 		panic!(
 			"Could not change directory to rootfs path {:?}",
@@ -456,6 +390,18 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		nix::unistd::chroot(".").expect("Could not chroot into current directory!");
 		nix::unistd::chdir("/").expect("Could not chdir to / after chroot!");
 	}
+
+	let hermit_network_config = if args.config.is_hermit_container {
+		match tokio_runtime.block_on(network::create_tap()) {
+			Ok(config) => Some(config),
+			Err(err) => {
+				warn!("Hermit network setup could not be completed: {err}");
+				None
+			}
+		}
+	} else {
+		None
+	};
 
 	//TODO: re-open /dev/null in the container if any std-fd points to it
 
