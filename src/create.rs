@@ -197,7 +197,7 @@ pub fn create_container(
 			nix::mount::MsFlags::empty(),
 			Some(datastr.as_str()),
 		)
-		.unwrap_or_else(|_| panic!("Could not create overlay-fs at {:?}", overlay_root));
+		.unwrap_or_else(|err| panic!("Could not create overlay-fs at {:?}: {}", overlay_root, err));
 		rootfs_path_abs = std::fs::canonicalize(overlay_mergeddir).unwrap();
 	}
 
