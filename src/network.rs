@@ -180,7 +180,7 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Box<dyn std::error::Err
 		.join(format!("tap{}", macvtap_index))
 		.join("dev");
 	let dev_file_string = std::fs::read_to_string(&tap_dev_file_path)
-		.expect(format!("Could not open sysfs entry at {:?}", &tap_dev_file_path).as_str());
+		.unwrap_or_else(|_| panic!("Could not open sysfs entry at {:?}", &tap_dev_file_path));
 
 	let mut major_minor_split = dev_file_string.split(':');
 
@@ -198,10 +198,14 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Box<dyn std::error::Err
 	.expect("Could not create tap device corresponding to macvtap0!");
 
 	// Assume all network parameters have been set
-	let ip_address = ip_address.expect("IP address could not be determined during networking setup!");
-	let prefix_length = prefix_length.expect("IP prefix length could not be determined during networking setup!");
-	let gateway_address = gateway_address.expect("Gateway address could not be determined during networking setup!");
-	let mac_address = mac_address.expect("MAC address could not be determined during networking setup!");
+	let ip_address =
+		ip_address.expect("IP address could not be determined during networking setup!");
+	let prefix_length =
+		prefix_length.expect("IP prefix length could not be determined during networking setup!");
+	let gateway_address =
+		gateway_address.expect("Gateway address could not be determined during networking setup!");
+	let mac_address =
+		mac_address.expect("MAC address could not be determined during networking setup!");
 
 	info!(
 		"Found / created network setup: IP={},MASK={},GW={},MAC={}",

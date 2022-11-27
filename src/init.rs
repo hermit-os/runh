@@ -310,10 +310,10 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		.as_ref()
 		.unwrap()
 	{
-		if ns.typ() == runtime::LinuxNamespaceType::Network {
-			if ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty() {
-				setup_network = true;
-			}
+		if ns.typ() == runtime::LinuxNamespaceType::Network
+			&& (ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty())
+		{
+			setup_network = true;
 		}
 	}
 	let tokio_runtime = tokio::runtime::Runtime::new().expect("Could not spawn new tokio runtime!");
@@ -527,13 +527,13 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.parse()
 			.expect("RUNH_MICRO_VM was not an unsigned integer!");
 
-		tap_fd = hermit_network_config.as_ref().and_then(|conf| {
+		tap_fd = hermit_network_config.as_ref().map(|conf| {
 			let tap_file = OpenOptions::new()
 				.read(true)
 				.write(true)
 				.open(format!("/dev/tap{}", conf.macvtap_index))
 				.expect("Could not open tap device file!");
-			Some(tap_file.into_raw_fd())
+			tap_file.into_raw_fd()
 		});
 
 		hermit::get_qemu_args(
@@ -599,7 +599,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	drop(exec_fifo);
 
 	// Close file descriptors inherited from runh create
-	nix::unistd::close(fifo_fd.into()).expect("Could not close exec fifo O_PATH fd!");
+	nix::unistd::close(fifo_fd).expect("Could not close exec fifo O_PATH fd!");
 	nix::unistd::close(init_pipe.into_raw_fd()).expect("Could not close init pipe fd!");
 
 	let mut cmd = std::process::Command::new(exec_path_abs);
