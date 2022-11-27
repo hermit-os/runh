@@ -432,6 +432,7 @@ pub fn create_container(
 		panic!("Could not read from init-pipe! Init probably died: {}", x);
 	} else if sig_buffer[0] == crate::consts::INIT_READY_TO_EXECV {
 		info!("Runh init ran successfully and is now ready to execv. Waiting for log pipe to close...");
+		log_forwarder.join().expect("Log forwarder did panic!");
 	} else {
 		panic!("Received invalid signal from runh init!");
 	}
