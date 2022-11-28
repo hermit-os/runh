@@ -63,7 +63,7 @@ pub fn list_containers(project_dir: PathBuf) {
 				} else {
 					OffsetDateTime::UNIX_EPOCH
 				};
-				let user = get_unix_username(metadata.uid()).unwrap_or_else(|| "".to_string());
+				let user = get_unix_username(metadata.uid()).unwrap_or_default();
 				let status = if uts.exists() { "RUNNING" } else { "CREATED" };
 				let format_desc =
 					format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
