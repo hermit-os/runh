@@ -375,7 +375,7 @@ pub fn create_container(
 
 		if let Some(prestart_hooks) = hooks.prestart().as_ref() {
 			for hook in prestart_hooks {
-				let mut cmd = std::process::Command::new(&hook.path());
+				let mut cmd = std::process::Command::new(hook.path());
 				if let Some(args) = &hook.args() {
 					if !args.is_empty() {
 						cmd.arg0(&args[0]);
