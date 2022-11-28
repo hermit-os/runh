@@ -93,7 +93,7 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			continue;
 		}
 		let destination_resolved = rootfs::resolve_in_rootfs(dev.path(), rootfs);
-		if !destination_resolved.starts_with(&rootfs) {
+		if !destination_resolved.starts_with(rootfs) {
 			panic!("Device at {:?} cannot be mounted into rootfs!", dev.path());
 		}
 		mounts::create_all_dirs(&PathBuf::from(
@@ -160,7 +160,7 @@ fn verify_device(path: &Path, major_exp: u64, minor_exp: u64) {
 pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
 	let destination_relative = PathBuf::from("/dev/net/tun");
 	let destination_resolved = rootfs::resolve_in_rootfs(&destination_relative, rootfs);
-	if !destination_resolved.starts_with(&rootfs) {
+	if !destination_resolved.starts_with(rootfs) {
 		panic!(
 			"Device at {:?} cannot be mounted into rootfs!",
 			&destination_relative

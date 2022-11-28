@@ -77,7 +77,7 @@ pub fn configure_mounts(
 
 		let destination_resolved = rootfs::resolve_in_rootfs(mount.destination(), rootfs);
 
-		if destination_resolved.starts_with(&rootfs) {
+		if destination_resolved.starts_with(rootfs) {
 			debug!(
 				"Mounting {:?} with type {} and options {:?}",
 				destination_resolved,
@@ -365,7 +365,7 @@ fn open_trough_procfd(
 		.read(true)
 		.write(false)
 		.mode(0o0)
-		.open(&full_dest)
+		.open(full_dest)
 		.unwrap_or_else(|_| panic!("Could not open mount directory at {:?}!", full_dest));
 
 	let mut procfd_path = PathBuf::new();
