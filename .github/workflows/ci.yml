@@ -86,7 +86,7 @@ jobs:
     - uses: Swatinem/rust-cache@v2
     - name: Build runh
       run: |
-        cargo install --path .
+        cargo install --locked --path .
         sudo ln -s /home/runner/.cargo/bin/runh /bin/runh
     - name: Setup runh with Docker
       shell: sudo bash --noprofile --norc -eo pipefail {0}
