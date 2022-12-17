@@ -103,7 +103,7 @@ pub fn configure_mounts(
 						mount_src
 					);
 				}
-				if destination_resolved.starts_with(&rootfs.join("proc")) {
+				if destination_resolved.starts_with(rootfs.join("proc")) {
 					panic!(
 						"Tried to mount source {:?} at destination {:?} which is in /proc",
 						mount_src, mount_dest
@@ -249,7 +249,7 @@ pub fn configure_mounts(
 						warn!("Warning: cgroups are currently unimplemented!");
 					}
 					_ => {
-						if destination_resolved.starts_with(&rootfs.join("proc")) {
+						if destination_resolved.starts_with(rootfs.join("proc")) {
 							panic!(
 								"Tried to mount source {:?} at destination {:?} which is in /proc",
 								mount_src, mount_dest

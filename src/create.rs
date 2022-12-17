@@ -53,17 +53,14 @@ pub fn create_container(
 		.read(true)
 		.write(true)
 		.create_new(true)
-		.open(&spec_path)
+		.open(spec_path)
 		.expect("Unable to create container");
 	file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 		.unwrap();
 
 	// link container bundle
-	fs::symlink(
-		PathBuf::from(bundle.unwrap()),
-		&container_dir.join("bundle"),
-	)
-	.expect("Unable to symlink bundle into project dir!");
+	fs::symlink(PathBuf::from(bundle.unwrap()), container_dir.join("bundle"))
+		.expect("Unable to symlink bundle into project dir!");
 
 	// write container to root dir
 	if debug_config {
@@ -71,7 +68,7 @@ pub fn create_container(
 		let mut file = OpenOptions::new()
 			.write(true)
 			.create(true)
-			.open(&spec_path_backup)
+			.open(spec_path_backup)
 			.expect("Unable to write spec to backup file!");
 		file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
 			.unwrap();
