@@ -84,7 +84,7 @@ pub fn init_container() {
 	let message_size = usize::from_le_bytes(size_buffer);
 	debug!("Rootfs-path lenght: {}", message_size);
 
-	let mut rootfs_path_buffer = vec![0; message_size as usize];
+	let mut rootfs_path_buffer = vec![0; message_size];
 	init_pipe
 		.read_exact(&mut rootfs_path_buffer)
 		.expect("Could not read rootfs-path from init pipe!");
@@ -101,7 +101,7 @@ pub fn init_container() {
 		let message_size = usize::from_le_bytes(size_buffer);
 		debug!("Bundle rootfs path lenght: {}", message_size);
 
-		let mut bundle_rootfs_path_buffer = vec![0; message_size as usize];
+		let mut bundle_rootfs_path_buffer = vec![0; message_size];
 		init_pipe
 			.read_exact(&mut bundle_rootfs_path_buffer)
 			.expect("Could not read bundle rootfs path from init pipe!");
@@ -394,7 +394,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 						network_config_str.len()
 					);
 					init_pipe
-						.write_all(&(network_config_str.len() as usize).to_le_bytes())
+						.write_all(&network_config_str.len().to_le_bytes())
 						.expect("Could not write hermit env path size to init pipe!");
 
 					init_pipe
