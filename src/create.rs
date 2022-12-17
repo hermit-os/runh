@@ -297,7 +297,7 @@ pub fn create_container(
 		rootfs_path_str.len()
 	);
 	init_pipe
-		.write_all(&(rootfs_path_str.len() as usize).to_le_bytes())
+		.write_all(&rootfs_path_str.len().to_le_bytes())
 		.expect("Could not write rootfs-path size to init pipe!");
 
 	init_pipe
@@ -318,7 +318,7 @@ pub fn create_container(
 			bundle_rootfs_path_str.len()
 		);
 		init_pipe
-			.write_all(&(bundle_rootfs_path_str.len() as usize).to_le_bytes())
+			.write_all(&bundle_rootfs_path_str.len().to_le_bytes())
 			.expect("Could not write hermit env path size to init pipe!");
 
 		init_pipe
@@ -445,7 +445,7 @@ pub fn create_container(
 				let message_size = usize::from_le_bytes(size_buffer);
 				debug!("Network setup data length: {}", message_size);
 
-				let mut network_setup_buffer = vec![0; message_size as usize];
+				let mut network_setup_buffer = vec![0; message_size];
 				init_pipe
 					.read_exact(&mut network_setup_buffer)
 					.expect("Could not read bundle rootfs path from init pipe!");
