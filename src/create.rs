@@ -194,7 +194,7 @@ pub fn create_container(
 			nix::mount::MsFlags::empty(),
 			Some(datastr.as_str()),
 		)
-		.unwrap_or_else(|_| panic!("Could not create overlay-fs at {:?}", overlay_root));
+		.unwrap_or_else(|err| panic!("Could not create overlay-fs at {:?}: {}", overlay_root, err));
 		rootfs_path_abs = std::fs::canonicalize(overlay_mergeddir).unwrap();
 	}
 
@@ -421,56 +421,6 @@ pub fn create_container(
 		.write_all(&[crate::consts::CREATE_ACK_PRESTART_HOOKS])
 		.expect("Unable to write to init-pipe!");
 
-	//Save hermit network setup
-	if is_hermit_container {
-		let mut sig_buffer = [0u8];
-
-		init_pipe
-			.read_exact(&mut sig_buffer)
-			.expect("Could not read from init pipe!");
-		match sig_buffer[0] {
-			crate::consts::INIT_REQ_SKIP_NETWORK_SETUP => {
-				init_pipe
-					.write_all(&[crate::consts::CREATE_ACK_NETWORK_SETUP])
-					.expect("Unable to write to init-pipe!");
-			}
-			crate::consts::INIT_REQ_SAVE_NETWORK_SETUP => {
-				let mut size_buffer = [0u8; std::mem::size_of::<usize>()];
-				init_pipe
-					.read_exact(&mut size_buffer)
-					.expect("Could not read message size from init-pipe!");
-				let message_size = usize::from_le_bytes(size_buffer);
-				debug!("Network setup data length: {}", message_size);
-
-				let mut network_setup_buffer = vec![0; message_size];
-				init_pipe
-					.read_exact(&mut network_setup_buffer)
-					.expect("Could not read bundle rootfs path from init pipe!");
-				let network_setup = String::from_utf8(network_setup_buffer)
-					.expect("Could not parse bundle rootfs path as string!");
-				debug!("read network setup from init_pipe: {}", network_setup);
-
-				let mut network_setup_file =
-					std::fs::File::create(container_dir.join("hermit_network.json"))
-						.expect("Could not create hermit network file!");
-				write!(network_setup_file, "{}", network_setup)
-					.expect("Could not write to hermit network file!");
-
-				init_pipe
-					.write_all(&[crate::consts::CREATE_ACK_NETWORK_SETUP])
-					.expect("Unable to write to init-pipe!");
-			}
-			_ => {
-				panic!(
-					"Received invalid signal from runh init! Expected {:x} or {:x}, got {:x}",
-					crate::consts::INIT_REQ_SKIP_NETWORK_SETUP,
-					crate::consts::INIT_REQ_SAVE_NETWORK_SETUP,
-					sig_buffer[0]
-				);
-			}
-		}
-	}
-
 	//Waiting for init
 	debug!("Waiting for runh init to get ready to execv!");
 
@@ -479,6 +429,7 @@ pub fn create_container(
 		panic!("Could not read from init-pipe! Init probably died: {}", x);
 	} else if sig_buffer[0] == crate::consts::INIT_READY_TO_EXECV {
 		info!("Runh init ran successfully and is now ready to execv. Waiting for log pipe to close...");
+		log_forwarder.join().expect("Log forwarder did panic!");
 	} else {
 		panic!("Received invalid signal from runh init!");
 	}

@@ -13,6 +13,7 @@ use crate::{console, devices, hermit, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
 use capctl::prctl;
+use command_fds::CommandFdExt;
 use nix::sched::{self, CloneFlags};
 use nix::unistd::{Gid, Pid, Uid};
 use oci_spec::runtime;
@@ -121,6 +122,7 @@ pub fn init_container() {
 		.expect("RUNH_SPEC_FILE was not an integer!");
 	let spec_file = unsafe { File::from_raw_fd(spec_fd) };
 	let spec: Spec = serde_json::from_reader(&spec_file).expect("Unable to read spec file!");
+	drop(spec_file);
 
 	let linux_spec = spec.linux().as_ref().unwrap();
 
@@ -298,7 +300,6 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	//TODO: Create new session keyring if requested
 	//TODO: Setup network and routing
 	let mut setup_network = false;
-	let mut network_namespace: Option<String> = None;
 	for ns in args
 		.config
 		.spec
@@ -309,12 +310,10 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		.as_ref()
 		.unwrap()
 	{
-		if ns.typ() == runtime::LinuxNamespaceType::Network {
-			if ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty() {
-				setup_network = true;
-			} else {
-				network_namespace = Some(ns.path().as_ref().unwrap().to_str().unwrap().to_string());
-			}
+		if ns.typ() == runtime::LinuxNamespaceType::Network
+			&& (ns.path().is_none() || ns.path().as_ref().unwrap().as_os_str().is_empty())
+		{
+			setup_network = true;
 		}
 	}
 	let tokio_runtime = tokio::runtime::Runtime::new().expect("Could not spawn new tokio runtime!");
@@ -377,70 +376,6 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		);
 	}
 
-	let hermit_network_config = if args.config.is_hermit_container {
-		match tokio_runtime.block_on(network::create_tap(network_namespace.clone())) {
-			Ok(config) => {
-				if config.did_init && network_namespace.is_some() {
-					init_pipe
-						.write_all(&[crate::consts::INIT_REQ_SAVE_NETWORK_SETUP])
-						.expect("Unable to write to init-pipe!");
-
-					let network_config_str = serde_json::to_string(&config)
-						.expect("Could not serialize hermit network config!");
-
-					debug!(
-						"Write hermit network config {} (lenght {}) to init-pipe!",
-						network_config_str,
-						network_config_str.len()
-					);
-					init_pipe
-						.write_all(&network_config_str.len().to_le_bytes())
-						.expect("Could not write hermit env path size to init pipe!");
-
-					init_pipe
-						.write_all(network_config_str.as_bytes())
-						.expect("Could not write hermit env path to init pipe!");
-				} else {
-					init_pipe
-						.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
-						.expect("Unable to write to init-pipe!");
-				}
-				let mut sig_buffer = [0u8];
-				init_pipe
-					.read_exact(&mut sig_buffer)
-					.expect("Could not read from init pipe!");
-				if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
-					panic!(
-						"Received invalid signal from runh create! Expected {:x}, got {:x}",
-						crate::consts::CREATE_ACK_NETWORK_SETUP,
-						sig_buffer[0]
-					);
-				}
-				Some(config)
-			}
-			Err(x) => {
-				warn!("Hermit network setup could not be completed: {}", x);
-				init_pipe
-					.write_all(&[crate::consts::INIT_REQ_SKIP_NETWORK_SETUP])
-					.expect("Unable to write to init-pipe!");
-				let mut sig_buffer = [0u8];
-				init_pipe
-					.read_exact(&mut sig_buffer)
-					.expect("Could not read from init pipe!");
-				if sig_buffer[0] != crate::consts::CREATE_ACK_NETWORK_SETUP {
-					panic!(
-						"Received invalid signal from runh create! Expected {:x}, got {:x}",
-						crate::consts::CREATE_ACK_NETWORK_SETUP,
-						sig_buffer[0]
-					);
-				}
-				None
-			}
-		}
-	} else {
-		None
-	};
-
 	nix::unistd::chdir(&rootfs_path).unwrap_or_else(|_| {
 		panic!(
 			"Could not change directory to rootfs path {:?}",
@@ -456,6 +391,18 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		nix::unistd::chroot(".").expect("Could not chroot into current directory!");
 		nix::unistd::chdir("/").expect("Could not chdir to / after chroot!");
 	}
+
+	let hermit_network_config = if args.config.is_hermit_container {
+		match tokio_runtime.block_on(network::create_tap()) {
+			Ok(config) => Some(config),
+			Err(err) => {
+				warn!("Hermit network setup could not be completed: {err}");
+				None
+			}
+		}
+	} else {
+		None
+	};
 
 	//TODO: re-open /dev/null in the container if any std-fd points to it
 
@@ -550,6 +497,8 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	// - Apply capabilities
 
 	//Verify the args[0] executable exists
+	let mut tap_fd = None;
+
 	let exec_args = if args.config.is_hermit_container {
 		let app = args
 			.config
@@ -577,6 +526,16 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.unwrap_or_else(|_| "1".to_string())
 			.parse()
 			.expect("RUNH_MICRO_VM was not an unsigned integer!");
+
+		tap_fd = hermit_network_config.as_ref().map(|conf| {
+			let tap_file = OpenOptions::new()
+				.read(true)
+				.write(true)
+				.open(format!("/dev/tap{}", conf.macvtap_index))
+				.expect("Could not open tap device file!");
+			tap_file.into_raw_fd()
+		});
+
 		hermit::get_qemu_args(
 			kernel,
 			app,
@@ -591,6 +550,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				.unwrap(),
 			micro_vm > 0,
 			kvm > 0,
+			&tap_fd,
 		)
 	} else {
 		args.config
@@ -638,12 +598,20 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	write!(exec_fifo, "\0").expect("Could not write to exec fifo!");
 	drop(exec_fifo);
 
+	// Close file descriptors inherited from runh create
+	nix::unistd::close(fifo_fd).expect("Could not close exec fifo O_PATH fd!");
+	nix::unistd::close(init_pipe.into_raw_fd()).expect("Could not close init pipe fd!");
+
 	let mut cmd = std::process::Command::new(exec_path_abs);
 	cmd.arg0(exec_args.get(0).unwrap());
 	if exec_args.len() > 1 {
 		cmd.args(exec_args.get(1..).unwrap());
 	}
 	cmd.envs(std::env::vars());
+
+	if let Some(tap_fd) = tap_fd {
+		cmd.preserved_fds(vec![tap_fd]);
+	}
 	let error = cmd.exec();
 
 	//This point should not be reached on successful exec

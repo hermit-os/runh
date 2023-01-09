@@ -44,6 +44,7 @@ pub fn get_qemu_args(
 	app_args: &[String],
 	micro_vm: bool,
 	kvm: bool,
+	tap_fd: &Option<i32>,
 ) -> Vec<String> {
 	let mut exec_args: Vec<String> = vec![
 		"qemu-system-x86_64",
@@ -103,7 +104,7 @@ pub fn get_qemu_args(
 
 	if let Some(network_config) = netconf.as_ref() {
 		exec_args.push("-netdev".to_string());
-		exec_args.push("tap,id=net0,ifname=tap100,script=no,downscript=no".to_string());
+		exec_args.push(format!("tap,id=net0,fd={}", tap_fd.unwrap()));
 		exec_args.push("-device".to_string());
 		exec_args.push(if micro_vm {
 			format!("virtio-net-device,netdev=net0,mac={}", network_config.mac)

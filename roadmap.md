@@ -57,7 +57,6 @@
 # Issues
 - Networking
   - works rather inconsistent (might be because of RustyHermit network code)
-  - relies on the IP command instead of using an internal netlink library
   - network namespace is not reset when restarting a Kubernetes Pod -> usage of dummy device in network.rs
   - when a Hermit-Container runs in a pod, other containers in this pod likely can't access the network
     - running two Hermit-Containers in one pod should not be possible
@@ -81,7 +80,7 @@
 - Container images
   - when `runh` detects a Hermit-App, it does not check any other files in the image. By providing a file named `qemu-system-x86_64` in the image, a Hermit-Image can run arbitrary code in a container (in the same way, Linux images can). This might be a feature (e.g. to allow users to
   package their own version of QEMU) or a security issue (when `runh` makes assumptions based on the fact that only the QEMU VM will run in any given Hermit container)
-  - Are their licensing issues with providing the Hermit Environment base image (containing Ubuntu + QEMU files) on some RWTH registry?
+  - Are there licensing issues with providing the Hermit Environment base image (containing Ubuntu + QEMU files) on some RWTH registry?
 
 
 # Missing features:

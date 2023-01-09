@@ -1302,8 +1302,7 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 [[package]]
 name = "rtnetlink"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f1cfa18f8cebe685373a2697915d7e0db3b4554918bba118385e0f71f258a7"
+source = "git+https://github.com/rust-netlink/rtnetlink.git#63f083c0be51414e517cfc2412cc35a4b3dd1d2b"
 dependencies = [
  "futures",
  "log",
