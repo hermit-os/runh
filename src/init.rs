@@ -85,7 +85,7 @@ pub fn init_container() {
 	let message_size = usize::from_le_bytes(size_buffer);
 	debug!("Rootfs-path lenght: {}", message_size);
 
-	let mut rootfs_path_buffer = vec![0; message_size as usize];
+	let mut rootfs_path_buffer = vec![0; message_size];
 	init_pipe
 		.read_exact(&mut rootfs_path_buffer)
 		.expect("Could not read rootfs-path from init pipe!");
@@ -102,7 +102,7 @@ pub fn init_container() {
 		let message_size = usize::from_le_bytes(size_buffer);
 		debug!("Bundle rootfs path lenght: {}", message_size);
 
-		let mut bundle_rootfs_path_buffer = vec![0; message_size as usize];
+		let mut bundle_rootfs_path_buffer = vec![0; message_size];
 		init_pipe
 			.read_exact(&mut bundle_rootfs_path_buffer)
 			.expect("Could not read bundle rootfs path from init pipe!");
