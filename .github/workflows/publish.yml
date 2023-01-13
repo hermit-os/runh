@@ -27,7 +27,7 @@ jobs:
         cat << END > Dockerfile
         FROM ubuntu:latest
         RUN apt update
-        RUN apt install -y --no-install-recommends qemu-system-x86 qemu-system-x86-microvm
+        RUN apt install -y --no-install-recommends qemu-system-x86 qemu-system-x86-microvm net-tools
         END
     - name: Build and push container
       uses: docker/build-push-action@v3
