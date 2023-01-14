@@ -392,7 +392,12 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		nix::unistd::chdir("/").expect("Could not chdir to / after chroot!");
 	}
 
-	let hermit_network_config = if args.config.is_hermit_container {
+	let user_port: u32 = env::var("RUNH_USER_PORT")
+		.unwrap_or_else(|_| "0".to_string())
+		.parse()
+		.expect("RUNH_USER_PORT was not an unsigned integer!");
+
+	let hermit_network_config = if args.config.is_hermit_container && user_port == 0 {
 		match tokio_runtime.block_on(network::create_tap()) {
 			Ok(config) => Some(config),
 			Err(err) => {
@@ -550,6 +555,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				.unwrap(),
 			micro_vm > 0,
 			kvm > 0,
+			user_port,
 			&tap_fd,
 		)
 	} else {

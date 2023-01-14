@@ -44,6 +44,7 @@ pub fn get_qemu_args(
 	app_args: &[String],
 	micro_vm: bool,
 	kvm: bool,
+	user_port: u32,
 	tap_fd: &Option<i32>,
 ) -> Vec<String> {
 	let mut exec_args: Vec<String> = vec![
@@ -114,6 +115,14 @@ pub fn get_qemu_args(
 				network_config.mac
 			)
 		});
+	} else if user_port > 0 {
+		exec_args.push("-netdev".to_string());
+		exec_args.push(format!(
+			"user,id=u1,hostfwd=tcp::{}-:{},net=192.168.76.0/24,dhcpstart=192.168.76.9",
+			user_port, user_port
+		));
+		exec_args.push("-device".to_string());
+		exec_args.push("rtl8139,netdev=u1".to_string());
 	}
 
 	exec_args.push("-append".to_string());
