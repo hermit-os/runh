@@ -6,12 +6,12 @@ use std::path::PathBuf;
 use std::{error::Error, fmt, net::Ipv4Addr};
 
 #[derive(Debug)]
-struct HermitNetworkError {
+struct VirtioNetworkError {
 	details: String,
 }
 
 #[derive(Debug)]
-pub struct HermitNetworkConfig {
+pub struct VirtioNetworkConfig {
 	pub ip: Ipv4Addr,
 	pub gateway: Ipv4Addr,
 	pub mask: Ipv4Addr,
@@ -19,19 +19,19 @@ pub struct HermitNetworkConfig {
 	pub macvtap_index: u32,
 }
 
-impl From<String> for HermitNetworkError {
+impl From<String> for VirtioNetworkError {
 	fn from(msg: String) -> Self {
-		HermitNetworkError { details: msg }
+		VirtioNetworkError { details: msg }
 	}
 }
 
-impl fmt::Display for HermitNetworkError {
+impl fmt::Display for VirtioNetworkError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.details)
 	}
 }
 
-impl Error for HermitNetworkError {
+impl Error for VirtioNetworkError {
 	fn description(&self) -> &str {
 		&self.details
 	}
@@ -54,7 +54,7 @@ pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
  This function is in large parts inspired by the runnc code for Nabla Containers
  https://github.com/nabla-containers/runnc/blob/46ededdd75a03cecf05936a1a45d5d0096a2b117/nabla-lib/network/network_linux.go
 */
-pub async fn create_tap() -> Result<HermitNetworkConfig, Box<dyn std::error::Error>> {
+pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Error>> {
 	let (connection, handle, _) = rtnetlink::new_connection()?;
 	let _ = tokio::spawn(connection);
 
@@ -79,7 +79,7 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Box<dyn std::error::Err
 			true
 		}
 		Err(err) => {
-			return Err(Box::new(HermitNetworkError::from(format!(
+			return Err(Box::new(VirtioNetworkError::from(format!(
 				"Macvtap0 interface detection failed: {err}"
 			))));
 		}
@@ -159,7 +159,7 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Box<dyn std::error::Err
 	for nla in macvtap_link_info.nlas.into_iter() {
 		if let link::nlas::Nla::Address(addr) = nla {
 			if addr.len() != 6 {
-				return Err(Box::new(HermitNetworkError::from(format!(
+				return Err(Box::new(VirtioNetworkError::from(format!(
 					"Received invalid MAC address {addr:?} for macvtap device!"
 				))));
 			}
@@ -216,7 +216,7 @@ pub async fn create_tap() -> Result<HermitNetworkConfig, Box<dyn std::error::Err
 	);
 
 	let mask: Ipv4Addr = Ipv4Addr::from(0xffffffffu32 << prefix_length);
-	Ok(HermitNetworkConfig {
+	Ok(VirtioNetworkConfig {
 		ip: ip_address,
 		gateway: gateway_address,
 		mask,

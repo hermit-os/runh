@@ -37,14 +37,19 @@ pub fn prepare_environment(project_dir: &Path, hermit_env_path: &Option<PathBuf>
 	}
 }
 
+pub enum NetworkConfig {
+	VirtIO(network::VirtioNetworkConfig),
+	UserNetwork(u16),
+	None,
+}
+
 pub fn get_qemu_args(
 	kernel: &str,
 	app: &str,
-	netconf: &Option<network::HermitNetworkConfig>,
+	netconf: &NetworkConfig,
 	app_args: &[String],
 	micro_vm: bool,
 	kvm: bool,
-	user_port: u32,
 	tap_fd: &Option<i32>,
 ) -> Vec<String> {
 	let mut exec_args: Vec<String> = vec![
@@ -103,38 +108,45 @@ pub fn get_qemu_args(
 		);
 	}
 
-	if let Some(network_config) = netconf.as_ref() {
-		exec_args.push("-netdev".to_string());
-		exec_args.push(format!("tap,id=net0,fd={}", tap_fd.unwrap()));
-		exec_args.push("-device".to_string());
-		exec_args.push(if micro_vm {
-			format!("virtio-net-device,netdev=net0,mac={}", network_config.mac)
-		} else {
-			format!(
-				"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
-				network_config.mac
-			)
-		});
-	} else if user_port > 0 {
-		exec_args.push("-netdev".to_string());
-		exec_args.push(format!(
-			"user,id=u1,hostfwd=tcp::{}-:{},net=192.168.76.0/24,dhcpstart=192.168.76.9",
-			user_port, user_port
-		));
-		exec_args.push("-device".to_string());
-		exec_args.push("rtl8139,netdev=u1".to_string());
-	}
+	let mut args_string = match netconf {
+		NetworkConfig::VirtIO(network_config) => {
+			exec_args.push("-netdev".to_string());
+			exec_args.push(format!("tap,id=net0,fd={}", tap_fd.unwrap()));
+			exec_args.push("-device".to_string());
+			exec_args.push(if micro_vm {
+				format!("virtio-net-device,netdev=net0,mac={}", network_config.mac)
+			} else {
+				format!(
+					"virtio-net-pci,netdev=net0,disable-legacy=on,mac={}",
+					network_config.mac
+				)
+			});
+			exec_args.push("-append".to_string());
 
-	exec_args.push("-append".to_string());
+			let args_string = format!(
+				"-ip {} -gateway {} -mask {}",
+				network_config.ip, network_config.gateway, network_config.mask
+			);
 
-	let mut args_string = "".to_string();
+			args_string
+		}
+		NetworkConfig::UserNetwork(user_port) => {
+			exec_args.push("-netdev".to_string());
+			exec_args.push(format!(
+				"user,id=u1,hostfwd=tcp::{}-:{},net=192.168.76.0/24,dhcpstart=192.168.76.9",
+				user_port, user_port
+			));
+			exec_args.push("-device".to_string());
+			exec_args.push("rtl8139,netdev=u1".to_string());
+			exec_args.push("-append".to_string());
 
-	if let Some(network_config) = netconf.as_ref() {
-		args_string = format!(
-			"-ip {} -gateway {} -mask {}",
-			network_config.ip, network_config.gateway, network_config.mask
-		);
-	}
+			"".to_string()
+		}
+		NetworkConfig::None => {
+			exec_args.push("-append".to_string());
+			"".to_string()
+		}
+	};
 
 	if let Some(application_args) = app_args.get(1..) {
 		args_string = format!("{} -- {}", args_string, application_args.join(" "));
