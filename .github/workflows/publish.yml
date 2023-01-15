@@ -22,7 +22,7 @@ jobs:
         registry: ghcr.io
         username: hermitcore
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Create dockerfile
+    - name: Create dockerfile for dev environment
       run: |
         cat << END > Dockerfile
         FROM ubuntu:latest
@@ -34,4 +34,17 @@ jobs:
       with:
         context: .
         push: true
+        tags: ghcr.io/hermitcore/hermit_dev:latest
+    - name: Create dockerfile for std environment
+      run: |
+        cat << END > Dockerfile
+        FROM alpine:latest
+        RUN apk add --no-cachel qemu qemu-system-x86_64
+        END
+    - name: Build and push container
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        push: true
         tags: ghcr.io/hermitcore/hermit_env:latest
+    
