@@ -1,25 +1,6 @@
 # runh
 
 `run`is a CLI tool for spawning and running RustyHermit containers.
-
-## CRI-O
-
-* https://computingforgeeks.com/install-cri-o-container-runtime-on-rocky-linux-almalinux/
-
-* https://github.com/cri-o/cri-o/issues/6197
-
-https://medium.com/nerd-for-tech/using-cri-o-as-container-runtime-for-kubernetes-b8ddf8326d38
-
-sed -i 's/\[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.runh\]\nruntime_path = "\/home\/runner\/.cargo\/bin\/runh"\nruntime_type = "oci"\nruntime_root = "\/run\/runh"\n\n\[crio.runtime.runtimes.runc\]/g' /etc/crio/crio.conf
-
-echo '{ "metadata": { "name": "hermit-sandbox", "namespace": "default", "attempt": 1, "uid": "hdishd83djaidwnduwk28bcsb" }, "log_directory": "/tmp", "linux": { } }' \
-            > /home/runner/pod.json
-
-echo '{ "metadata": { "name": "rusty_demo" }, "image":{ "image": "ghcr.io/hermitcore/rusty_demo:latest" }, "log_path":"rusty_demo.log", "linux": { } }' \
-            > /home/runner/container.json
-                
-## Running runh standalone
-
 To start RustyHermit application within a isolated lightweight virtual machine, a directory with the application and the loader must be created.
 In this example, the binaries will be downloaded from a docker registry.
 
@@ -54,7 +35,6 @@ default args parameter in the spec from `sh` to `/hermit/rusty_demo`:
 $ runh spec -b data
 $ sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
 ```
-
 
 ## Funding
 
