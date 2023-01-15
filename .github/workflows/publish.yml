@@ -22,7 +22,7 @@ jobs:
         registry: ghcr.io
         username: hermitcore
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Create dockerfile for dev environment
+    - name: Create dockerfile for Ubuntu
       run: |
         cat << END > Dockerfile
         FROM ubuntu:latest
@@ -34,8 +34,8 @@ jobs:
       with:
         context: .
         push: true
-        tags: ghcr.io/hermitcore/hermit_dev:latest
-    - name: Create dockerfile for std environment
+        tags: ghcr.io/hermitcore/hermit_env:latest
+    - name: Create dockerfile for Alpine
       run: |
         cat << END > Dockerfile
         FROM alpine:latest
@@ -46,5 +46,5 @@ jobs:
       with:
         context: .
         push: true
-        tags: ghcr.io/hermitcore/hermit_env:latest
+        tags: ghcr.io/hermitcore/hermit_env_alpine:latest
     
