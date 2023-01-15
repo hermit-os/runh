@@ -39,7 +39,7 @@ jobs:
       run: |
         cat << END > Dockerfile
         FROM alpine:latest
-        RUN apk add --no-cachel qemu qemu-system-x86_64
+        RUN apk add --no-cache qemu qemu-system-x86_64
         END
     - name: Build and push container
       uses: docker/build-push-action@v3
