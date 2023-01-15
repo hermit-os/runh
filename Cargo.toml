@@ -14,7 +14,7 @@ description = "runh is a CLI tool for spawning and running RustyHermit container
 
 [dependencies]
 capctl = "0.2"
-clap = { version = "2.33", features = ["wrap_help", "suggestions"] }
+clap = { version = "4.1", features = ["wrap_help", "suggestions"] }
 colour = "0.6"
 command-fds = "0.2"
 dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git" }
