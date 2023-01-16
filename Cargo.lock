@@ -949,17 +949,6 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.24.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "195cdbc1741b8134346d515b3a56a1c94b0912758009cfd53f99ea0f57b065fc"
-dependencies = [
- "bitflags",
- "cfg-if",
- "libc",
-]
-
-[[package]]
-name = "nix"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46a58d1d356c6597d08cde02c2f09d785b09e28711837b1ed667dc652c08a694"
@@ -1302,13 +1291,13 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 [[package]]
 name = "rtnetlink"
 version = "0.11.0"
-source = "git+https://github.com/rust-netlink/rtnetlink.git#63f083c0be51414e517cfc2412cc35a4b3dd1d2b"
+source = "git+https://github.com/rust-netlink/rtnetlink.git#ebce2d8c8da59c6ac5ed374abcc6abf49edc76cd"
 dependencies = [
  "futures",
  "log",
  "netlink-packet-route",
  "netlink-proto",
- "nix 0.24.2",
+ "nix 0.26.1",
  "thiserror",
  "tokio",
 ]
