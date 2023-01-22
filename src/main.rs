@@ -32,51 +32,47 @@ use crate::delete::*;
 use crate::init::*;
 use crate::kill::*;
 use crate::list::*;
+use crate::logging::*;
 use crate::pull::*;
 use crate::spec::*;
 use crate::start::*;
 use crate::state::*;
-use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
+use clap::{crate_version, Parser, Subcommand};
 use std::fs::DirBuilder;
 use std::os::unix::fs::DirBuilderExt;
 use std::{env, path::PathBuf};
 
-fn parse_matches(app: App) {
-	let matches = app.get_matches();
-
-	let project_dir = PathBuf::from(matches.value_of("ROOT").unwrap());
+fn parse_matches(cli: &Cli) {
+	let project_dir = &cli.root;
 
 	if !project_dir.exists() {
 		DirBuilder::new()
 			.recursive(true)
 			.mode(0o755)
-			.create(&project_dir)
+			.create(project_dir)
 			.unwrap_or_else(|_| panic!("Could not create root directory at {:?}", &project_dir));
 	}
 
-	if let ("state", Some(sub_m)) = matches.subcommand() {
+	if let Commands::State { container_id } = &cli.command {
 		logging::init(
 			project_dir.clone(),
-			matches.value_of("LOG_PATH"),
-			matches.value_of("LOG_FORMAT"),
-			if matches.value_of("LOG_PATH").is_none() {
-				Some("error") //Suppress all output when only logging to stdout as we only want to print the state json.
-			} else {
-				matches.value_of("LOG_LEVEL")
-			},
-			matches.is_present("DEBUG_LOG"),
+			cli.log.clone(),
+			cli.log_format,
+			cli.log_level,
+			cli.debug_log,
 		);
-		print_container_state(project_dir, sub_m.value_of("CONTAINER_ID").unwrap());
+
+		print_container_state(project_dir.clone(), container_id);
 		return;
-	};
+	}
 
 	// initialize logger
 	logging::init(
 		project_dir.clone(),
-		matches.value_of("LOG_PATH"),
-		matches.value_of("LOG_FORMAT"),
-		matches.value_of("LOG_LEVEL"),
-		matches.is_present("DEBUG_LOG"),
+		cli.log.clone(),
+		cli.log_format,
+		cli.log_level,
+		cli.debug_log,
 	);
 	info!("Welcome to runh {}", crate_version!());
 	debug!(
@@ -84,51 +80,41 @@ fn parse_matches(app: App) {
 		env::args().collect::<Vec<String>>().join(" ")
 	);
 
-	match matches.subcommand() {
-		("spec", Some(sub_m)) => create_spec(
-			sub_m.value_of("BUNDLE"),
-			sub_m
-				.values_of("ARGS")
-				.unwrap()
-				.map(|a| a.to_string())
-				.collect(),
+	match &cli.command {
+		Commands::Spec { bundle, args } => create_spec(bundle.clone(), args.clone()),
+		Commands::Create {
+			container_id,
+			bundle,
+			pid_file,
+			console_socket,
+		} => create_container(
+			project_dir.clone(),
+			container_id,
+			bundle.clone(),
+			pid_file.clone(),
+			console_socket.clone(),
+			cli.hermit_env.clone(),
+			cli.debug_config,
+			cli.log_level,
 		),
-		("create", Some(sub_m)) => create_container(
-			project_dir,
-			sub_m.value_of("CONTAINER_ID"),
-			sub_m.value_of("BUNDLE"),
-			sub_m.value_of("PID_FILE"),
-			sub_m.value_of("CONSOLE_SOCKET"),
-			matches.value_of("HERMIT_ENV_PATH"),
-			matches.is_present("DEBUG_CONFIG"),
-			matches.value_of("LOG_LEVEL").unwrap(),
-		),
-		("delete", Some(sub_m)) => delete_container(
-			project_dir,
-			sub_m.value_of("CONTAINER_ID"),
-			sub_m.is_present("FORCE"),
-		),
-		("kill", Some(sub_m)) => kill_container(
-			project_dir,
-			sub_m.value_of("CONTAINER_ID"),
-			sub_m.value_of("SIGNAL"),
-			sub_m.is_present("ALL"),
-		),
-		("start", Some(sub_m)) => start_container(project_dir, sub_m.value_of("CONTAINER_ID")),
-		("init", Some(_)) => init_container(),
-		("list", Some(_)) => list_containers(project_dir),
-		("pull", Some(sub_m)) => {
-			if let Some(str) = sub_m.value_of("IMAGE") {
-				pull_registry(
-					str,
-					sub_m.value_of("USERNAME"),
-					sub_m.value_of("PASSWORD"),
-					sub_m.value_of("BUNDLE"),
-				);
-			} else {
-				error!("Image name is missing");
-			}
-		}
+		Commands::Delete {
+			container_id,
+			force,
+		} => delete_container(project_dir.clone(), container_id, *force),
+		Commands::Kill {
+			container_id,
+			signal,
+			all,
+		} => kill_container(project_dir.clone(), container_id, signal, *all),
+		Commands::Start { container_id } => start_container(project_dir.clone(), container_id),
+		Commands::List => list_containers(project_dir.clone()),
+		Commands::Init => init_container(),
+		Commands::Pull {
+			image,
+			bundle,
+			username,
+			password,
+		} => pull_registry(image, username, password, bundle.clone()),
 		_ => {
 			error!(
 				"Subcommand is missing or currently not supported! Run `runh -h` for more information!"
@@ -136,265 +122,145 @@ fn parse_matches(app: App) {
 		}
 	}
 }
+
+#[derive(Subcommand, Debug)]
+#[command(author, version, about, long_about = None)]
+#[command(next_line_help = true)]
+enum Commands {
+	/// Create a new specification file
+	Spec {
+		/// path to the root of the bundle directory
+		#[arg(short = 'b', long)]
+		bundle: PathBuf,
+
+		/// container arguments
+		#[arg(short = 'a', long)]
+		args: Vec<String>,
+	},
+	/// Query container state
+	State {
+		/// Id of the container
+		container_id: String,
+	},
+	/// Create a container
+	Create {
+		/// Id of the container
+		container_id: String,
+		/// path to the root of the bundle directory
+		#[arg(short = 'b', long)]
+		bundle: PathBuf,
+		/// File to write the process id to
+		#[arg(long)]
+		pid_file: Option<PathBuf>,
+		/// Path to an AF_UNIX socket for console IO
+		#[arg(long)]
+		console_socket: Option<PathBuf>,
+	},
+	/// Delete an existing container
+	Delete {
+		/// Id of the container
+		container_id: String,
+
+		/// Delete the container, even if it is still running
+		#[arg(short = 'f', long, default_value_t)]
+		force: bool,
+	},
+	/// Send a signal to a running or created container
+	Kill {
+		/// Id of the container
+		container_id: String,
+		/// Signal to be sent to the init process
+		#[arg(default_value = "SIGTERM")]
+		signal: String,
+		/// Send the signal to all container processes
+		#[arg(short = 'a', long, default_value_t)]
+		all: bool,
+	},
+	/// Execute new process inside the container
+	Exec {
+		/// Id of the container
+		container_id: String,
+		/// Command, which will be executed in the container
+		command: String,
+		/// Arguments of the command
+		command_options: Vec<String>,
+	},
+	/// Executes the user defined process in a created container
+	Start {
+		/// Id of the container
+		container_id: String,
+	},
+	/// Lists containers started by runh with the given root
+	List,
+	/// Init process running inside a newly created container. Do not use outside of runh!
+	Init,
+	/// Pull an image or a repository from a registry
+	Pull {
+		/// Image name
+		#[arg(value_name = "NAME[:TAG|@DIGEST]")]
+		image: String,
+		/// path to the root of the bundle directory
+		#[arg(short = 'b', long)]
+		bundle: PathBuf,
+		/// Username for accessing the registry
+		#[arg(short = 'u', long)]
+		username: Option<String>,
+		/// Password for accessing the registry
+		#[arg(short = 'p', long)]
+		password: Option<String>,
+	},
+	/// Checkpoint a running container (not supported)
+	Checkpoint,
+	/// Restore a container from a previous checkpoint (not supported)
+	Restore,
+}
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+#[command(next_line_help = true)]
+#[command(propagate_version = true)]
+struct Cli {
+	/// root directory for storage of vm state
+	#[arg(long, default_value = "/run/user/1000/runh", value_name = "ROOT")]
+	root: PathBuf,
+
+	/// The logging level of the application
+	#[arg(short = 'l', long, default_value_t, value_enum)]
+	log_level: LogLevel,
+
+	/// set the log file path
+	#[arg(long, value_name = "LOG_PATH")]
+	log: Option<PathBuf>,
+
+	/// set the log format
+	#[arg(long, default_value_t, value_enum)]
+	log_format: LogFormat,
+
+	/// Path to the hermit-environment. Defaults to <runh-root-dir>/hermit
+	#[arg(long, value_name = "HERMIT_ENV_PATH")]
+	hermit_env: Option<PathBuf>,
+
+	/// Write out any logs to the runh root directory in addition to the specified log path.
+	#[arg(long, default_value_t)]
+	debug_log: bool,
+
+	/// Copy the container configuration into the runh root directory for debugging.
+	#[arg(long, default_value_t)]
+	debug_config: bool,
+
+	/// Currently unimplemented!
+	#[arg(long)]
+	systemd_cgroup: bool,
+
+	#[command(subcommand)]
+	command: Commands,
+}
+
 pub fn main() {
 	std::panic::set_hook(Box::new(|panic_info| {
 		error!("PANIC: {}", panic_info);
 	}));
 
-	let app = App::new("runh")
-		.version(crate_version!())
-		.setting(AppSettings::ColoredHelp)
-		.author(crate_authors!("\n"))
-		.about(crate_description!())
-		.arg(
-			Arg::with_name("ROOT")
-				.long("root")
-				.takes_value(true)
-				.default_value("/run/user/1000/runh")
-				.help("root directory for storage of vm state"),
-		)
-		.arg(
-			Arg::with_name("LOG_LEVEL")
-				.long("log-level")
-				.short("l")
-				.default_value("info")
-				.possible_values(&["trace", "debug", "info", "warn", "error", "off"])
-				.help("The logging level of the application."),
-		)
-		.arg(
-			Arg::with_name("LOG_PATH")
-				.long("log")
-				.takes_value(true)
-				.help("set the log file path"),
-		)
-		.arg(
-			Arg::with_name("LOG_FORMAT")
-				.long("log-format")
-				.default_value("text")
-				.possible_values(&["text", "json"])
-				.help("set the log format"),
-		)
-		.arg(
-			Arg::with_name("DEBUG_LOG")
-				.long("debug-log")
-				.takes_value(false)
-				.help("Write out any logs to the runh root directory in addition to the specified log path.")
-		)
-		.arg(
-			Arg::with_name("DEBUG_CONFIG")
-				.long("debug-config")
-				.takes_value(false)
-				.help("Copy the container configuration into the runh root directory for debugging.")
-		)
-		.arg(
-			Arg::with_name("SYSTEMD_CGROUP")
-				.long("systemd-cgroup")
-				.takes_value(false)
-				.help("Currently unimplemented!")
-		)
-		.arg(
-			Arg::with_name("HERMIT_ENV_PATH")
-				.long("hermit-env")
-				.takes_value(true)
-				.help("Path to the hermit-environment. Defaults to <runh-root-dir>/hermit")
-		)
-		.subcommand(
-			SubCommand::with_name("spec")
-				.about("Create a new specification file")
-				.version(crate_version!())
-				.arg(
-					Arg::with_name("BUNDLE")
-						.long("bundle")
-						.short("b")
-						.required(true)
-						.takes_value(true)
-						.help("path to the root of the bundle directory"),
-				)
-				.arg(
-					Arg::with_name("ARGS")
-						.long("args")
-						.multiple(true)
-						.short("a")
-						.required(true)
-						.takes_value(true)
-						.help("container arguments"),
-				),
-		)
-		.subcommand(
-				SubCommand::with_name("state")
-				.about("Query container state")
-				.version(crate_version!())
-				.arg(
-					Arg::with_name("CONTAINER_ID")
-						.takes_value(true)
-						.required(true)
-						.help("Id of the container"),
-				)
-		)
-		.subcommand(
-			SubCommand::with_name("create")
-				.about("Create a container")
-				.version(crate_version!())
-				.arg(
-					Arg::with_name("CONTAINER_ID")
-						.takes_value(true)
-						.required(true)
-						.help("Id of the container"),
-				)
-				.arg(
-					Arg::with_name("BUNDLE")
-						.long("bundle")
-						.short("b")
-						.takes_value(true)
-						.required(true)
-						.help("Path to the root of the bundle directory"),
-				)
-				.arg(
-					Arg::with_name("PID_FILE")
-						.long("pid-file")
-						.takes_value(true)
-						.required(false)
-						.help("File to write the process id to"),
-				)
-				.arg(
-					Arg::with_name("CONSOLE_SOCKET")
-						.long("console-socket")
-						.takes_value(true)
-						.help("Path to an AF_UNIX socket for console IO")
-				),
-		)
-		.subcommand(
-			SubCommand::with_name("exec")
-				.about("Execute new process inside the container")
-				.version(crate_version!())
-				.arg(
-					Arg::with_name("CONTAINER_ID")
-						.takes_value(true)
-						.required(true)
-						.help("Id of the container"),
-				)
-				.arg(
-					Arg::with_name("COMMAND")
-						.takes_value(true)
-						.required(true)
-						.help("Command, which will be executed in the container"),
-				)
-				.arg(
-					Arg::with_name("COMMAND OPTIONS")
-						.help("Arguments of the command")
-						.required(false)
-						.multiple(true)
-						.max_values(255),
-				),
-		)
-		.subcommand(
-			SubCommand::with_name("delete")
-				.about("Delete an existing container")
-				.version(crate_version!())
-				.arg(
-					Arg::with_name("CONTAINER_ID")
-						.takes_value(true)
-						.required(true)
-						.help("Id of the container"),
-				)
-				.arg(
-					Arg::with_name("FORCE")
-						.long("force")
-						.short("f")
-						.takes_value(false)
-						.required(false)
-						.help("Delete the container, even if it is still running"),
-				),
-		)
-		.subcommand(
-			SubCommand::with_name("kill")
-			.about("Send a signal to a running or created container")
-			.version(crate_version!())
-			.arg(
-				Arg::with_name("CONTAINER_ID")
-					.takes_value(true)
-					.required(true)
-					.help("Id of the container"),
-			)
-			.arg(
-				Arg::with_name("SIGNAL")
-					.takes_value(true)
-					.required(false)
-					.default_value("SIGTERM")
-					.help("Signal to be sent to the init process"),
-			)
-			.arg(
-				Arg::with_name("ALL")
-					.long("all")
-					.short("a")
-					.takes_value(false)
-					.required(false)
-					.help("Send the signal to all container processes"),
-			),
-		)
-		.subcommand(
-			SubCommand::with_name("list")
-				.about("Create and run a container")
-				.version(crate_version!()),
-		)
-		.subcommand(
-			SubCommand::with_name("start")
-				.about("Executes the user defined process in a created container")
-				.version(crate_version!())
-				.arg(
-					Arg::with_name("CONTAINER_ID")
-						.takes_value(true)
-						.required(true)
-						.help("Id of the container"),
-				),
-		)
-		.subcommand(
-			SubCommand::with_name("init")
-				.about("Init process running inside a newly created container. Do not use outside of runh!")
-				.version(crate_version!())
-		)
-		.subcommand(
-			SubCommand::with_name("pull")
-				.about("Pull an image or a repository from a registry")
-				.version(crate_version!())
-				.arg(
-					Arg::with_name("IMAGE")
-						.value_name("NAME[:TAG|@DIGEST]")
-						.takes_value(true)
-						.help("image or a repository from a registry"),
-				)
-				.arg(
-					Arg::with_name("USERNAME")
-						.long("username")
-						.short("u")
-						.takes_value(true)
-						.help("Username"),
-				)
-				.arg(
-					Arg::with_name("PASSWORD")
-						.long("password")
-						.short("p")
-						.takes_value(true)
-						.help("Password"),
-				)
-				.arg(
-					Arg::with_name("BUNDLE")
-						.long("bundle")
-						.short("b")
-						.takes_value(true)
-						.help("Path to the root of the bundle directory"),
-				),
-		)
-		.subcommand(
-			SubCommand::with_name("checkpoint")
-				.about("Checkpoint a running container (not supported)")
-				.version(crate_version!()),
-		)
-		.subcommand(
-			SubCommand::with_name("restore")
-				.about("Restore a container from a previous checkpoint (not supported)")
-				.version(crate_version!()),
-		);
-
-	parse_matches(app.clone());
+	let cli = Cli::parse();
+	parse_matches(&cli);
 }

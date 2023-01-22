@@ -18,14 +18,14 @@ pub fn create_environment(_path: &Path) {
 	//TODO
 }
 
-pub fn get_environment_path(project_dir: &Path, hermit_env_path: &Option<&str>) -> PathBuf {
+pub fn get_environment_path(project_dir: &Path, hermit_env_path: &Option<PathBuf>) -> PathBuf {
 	match hermit_env_path {
-		Some(s) => PathBuf::from(s),
+		Some(s) => s.clone(),
 		None => project_dir.join("hermit"),
 	}
 }
 
-pub fn prepare_environment(project_dir: &Path, hermit_env_path: &Option<&str>) {
+pub fn prepare_environment(project_dir: &Path, hermit_env_path: &Option<PathBuf>) {
 	let environment_path = get_environment_path(project_dir, hermit_env_path);
 	if !environment_path.exists() {
 		create_environment(&environment_path);

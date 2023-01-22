@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 use log::{set_boxed_logger, set_max_level, Level, LevelFilter, Metadata, Record};
 use serde::Deserialize;
 use serde::Serialize;
@@ -7,13 +8,50 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::prelude::FromRawFd;
 use std::path::PathBuf;
+use std::string::{String, ToString};
 use std::sync::Mutex;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-enum LogFormat {
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum LogFormat {
 	Text,
 	Json,
+}
+
+impl Default for LogFormat {
+	fn default() -> LogFormat {
+		LogFormat::Text
+	}
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum LogLevel {
+	Info,
+	Warn,
+	Debug,
+	Trace,
+	Error,
+	Off,
+}
+
+impl Default for LogLevel {
+	fn default() -> LogLevel {
+		LogLevel::Info
+	}
+}
+
+impl ToString for LogLevel {
+	fn to_string(&self) -> String {
+		match self {
+			LogLevel::Info => String::from("info"),
+			LogLevel::Warn => String::from("warn"),
+			LogLevel::Debug => String::from("debug"),
+			LogLevel::Trace => String::from("trace"),
+			LogLevel::Error => String::from("error"),
+			LogLevel::Off => String::from("off"),
+		}
+	}
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,9 +133,9 @@ impl<W: Write + Send + 'static> RunhLogger<W> {
 
 pub fn init(
 	project_dir: PathBuf,
-	log_path: Option<&str>,
-	log_format: Option<&str>,
-	log_level: Option<&str>,
+	log_path: Option<PathBuf>,
+	log_format: LogFormat,
+	log_level: LogLevel,
 	internal_log: bool,
 ) {
 	let mut has_log_pipe = false;
@@ -112,10 +150,6 @@ pub fn init(
 				None
 			}
 		});
-	let log_format = log_format.map_or(LogFormat::Text, |fmt| match fmt {
-		"json" => LogFormat::Json,
-		_ => LogFormat::Text,
-	});
 
 	let logger: RunhLogger<File> = RunhLogger {
 		log_file: Mutex::new(log_file),
@@ -138,13 +172,12 @@ pub fn init(
 
 	set_boxed_logger(Box::new(logger)).expect("Can't initialize logger");
 	let max_level: LevelFilter = match log_level {
-		Some("error") => LevelFilter::Error,
-		Some("debug") => LevelFilter::Debug,
-		Some("off") => LevelFilter::Off,
-		Some("trace") => LevelFilter::Trace,
-		Some("warn") => LevelFilter::Warn,
-		Some("info") => LevelFilter::Info,
-		_ => LevelFilter::Info,
+		LogLevel::Error => LevelFilter::Error,
+		LogLevel::Debug => LevelFilter::Debug,
+		LogLevel::Off => LevelFilter::Off,
+		LogLevel::Trace => LevelFilter::Trace,
+		LogLevel::Warn => LevelFilter::Warn,
+		LogLevel::Info => LevelFilter::Info,
 	};
 	set_max_level(max_level);
 
