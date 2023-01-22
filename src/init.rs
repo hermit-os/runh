@@ -9,6 +9,7 @@ use std::{
 	os::unix::prelude::{FromRawFd, RawFd},
 };
 
+use crate::hermit::NetworkConfig;
 use crate::{console, devices, hermit, mounts};
 use crate::{flags, paths, rootfs};
 use crate::{namespaces, network};
@@ -392,16 +393,23 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		nix::unistd::chdir("/").expect("Could not chdir to / after chroot!");
 	}
 
-	let hermit_network_config = if args.config.is_hermit_container {
+	let user_port: u16 = env::var("RUNH_USER_PORT")
+		.unwrap_or_else(|_| "0".to_string())
+		.parse()
+		.expect("RUNH_USER_PORT was not an unsigned integer!");
+
+	let hermit_network_config = if args.config.is_hermit_container && user_port == 0 {
 		match tokio_runtime.block_on(network::create_tap()) {
-			Ok(config) => Some(config),
+			Ok(config) => NetworkConfig::TapNetwork(config),
 			Err(err) => {
 				warn!("Hermit network setup could not be completed: {err}");
-				None
+				NetworkConfig::None
 			}
 		}
+	} else if args.config.is_hermit_container && user_port > 0 {
+		NetworkConfig::UserNetwork(user_port)
 	} else {
-		None
+		NetworkConfig::None
 	};
 
 	//TODO: re-open /dev/null in the container if any std-fd points to it
@@ -527,14 +535,16 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.parse()
 			.expect("RUNH_MICRO_VM was not an unsigned integer!");
 
-		tap_fd = hermit_network_config.as_ref().map(|conf| {
+		tap_fd = if let NetworkConfig::TapNetwork(ref netconf) = hermit_network_config {
 			let tap_file = OpenOptions::new()
 				.read(true)
 				.write(true)
-				.open(format!("/dev/tap{}", conf.macvtap_index))
+				.open(format!("/dev/tap{}", netconf.macvtap_index))
 				.expect("Could not open tap device file!");
-			tap_file.into_raw_fd()
-		});
+			Some(tap_file.into_raw_fd())
+		} else {
+			None
+		};
 
 		hermit::get_qemu_args(
 			kernel,
