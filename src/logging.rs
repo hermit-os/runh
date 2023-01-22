@@ -3,12 +3,13 @@ use log::{set_boxed_logger, set_max_level, Level, LevelFilter, Metadata, Record}
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::to_string;
+use std::fmt;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::prelude::FromRawFd;
 use std::path::PathBuf;
-use std::string::{String, ToString};
+use std::string::String;
 use std::sync::Mutex;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -41,15 +42,34 @@ impl Default for LogLevel {
 	}
 }
 
-impl ToString for LogLevel {
-	fn to_string(&self) -> String {
+impl LogLevel {
+	pub fn as_str(&self) -> &'static str {
 		match self {
-			LogLevel::Info => String::from("info"),
-			LogLevel::Warn => String::from("warn"),
-			LogLevel::Debug => String::from("debug"),
-			LogLevel::Trace => String::from("trace"),
-			LogLevel::Error => String::from("error"),
-			LogLevel::Off => String::from("off"),
+			Self::Info => "info",
+			Self::Warn => "warn",
+			Self::Debug => "debug",
+			Self::Trace => "trace",
+			Self::Error => "error",
+			Self::Off => "off",
+		}
+	}
+}
+
+impl fmt::Display for LogLevel {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.write_str(self.as_str())
+	}
+}
+
+impl From<LogLevel> for LevelFilter {
+	fn from(value: LogLevel) -> Self {
+		match value {
+			LogLevel::Info => Self::Info,
+			LogLevel::Warn => Self::Warn,
+			LogLevel::Debug => Self::Debug,
+			LogLevel::Trace => Self::Trace,
+			LogLevel::Error => Self::Error,
+			LogLevel::Off => Self::Off,
 		}
 	}
 }
@@ -171,15 +191,7 @@ pub fn init(
 	};
 
 	set_boxed_logger(Box::new(logger)).expect("Can't initialize logger");
-	let max_level: LevelFilter = match log_level {
-		LogLevel::Error => LevelFilter::Error,
-		LogLevel::Debug => LevelFilter::Debug,
-		LogLevel::Off => LevelFilter::Off,
-		LogLevel::Trace => LevelFilter::Trace,
-		LogLevel::Warn => LevelFilter::Warn,
-		LogLevel::Info => LevelFilter::Info,
-	};
-	set_max_level(max_level);
+	set_max_level(log_level.into());
 
 	debug!("Runh logger initialized!");
 }

@@ -252,7 +252,7 @@ pub fn create_container(
 
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
-		.arg(child_log_level.to_string())
+		.arg(child_log_level.as_str())
 		.arg("--log-format")
 		.arg("json")
 		.arg("init")
