@@ -61,6 +61,19 @@ impl fmt::Display for LogLevel {
 	}
 }
 
+impl From<LogLevel> for LevelFilter {
+	fn from(value: LogLevel) -> Self {
+		match value {
+			LogLevel::Info => Self::Info,
+			LogLevel::Warn => Self::Warn,
+			LogLevel::Debug => Self::Debug,
+			LogLevel::Trace => Self::Trace,
+			LogLevel::Error => Self::Error,
+			LogLevel::Off => Self::Off,
+		}
+	}
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct LogEntry {
 	pub level: String,
@@ -178,15 +191,7 @@ pub fn init(
 	};
 
 	set_boxed_logger(Box::new(logger)).expect("Can't initialize logger");
-	let max_level: LevelFilter = match log_level {
-		LogLevel::Error => LevelFilter::Error,
-		LogLevel::Debug => LevelFilter::Debug,
-		LogLevel::Off => LevelFilter::Off,
-		LogLevel::Trace => LevelFilter::Trace,
-		LogLevel::Warn => LevelFilter::Warn,
-		LogLevel::Info => LevelFilter::Info,
-	};
-	set_max_level(max_level);
+	set_max_level(log_level.into());
 
 	debug!("Runh logger initialized!");
 }
