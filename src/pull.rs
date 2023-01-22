@@ -2,15 +2,16 @@ use dkregistry::reference::Reference;
 use dkregistry::render;
 use dkregistry::v2::Client;
 use futures::future::try_join_all;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::String;
 use tokio::runtime::Runtime;
 
 async fn async_pull(
 	registry: &str,
-	username: Option<String>,
-	password: Option<String>,
-	bundle: Option<String>,
+	username: &Option<String>,
+	password: &Option<String>,
+	bundle: PathBuf,
 ) {
 	debug!(
 		"Try to pull image with username: {:?} and password: {:?}",
@@ -25,8 +26,8 @@ async fn async_pull(
 	let dclient = Client::configure()
 		.registry(&dkref.registry().clone())
 		.insecure_registry(false)
-		.username(username)
-		.password(password)
+		.username(username.clone())
+		.password(password.clone())
 		.build()
 		.expect("Unable to create registry client")
 		.authenticate(&[&login_scope])
@@ -57,7 +58,7 @@ async fn async_pull(
 
 	debug!("Downloaded {} layers", blobs.len());
 
-	let path = std::path::PathBuf::from(bundle.unwrap());
+	let path = bundle.to_path_buf();
 	let can_path = path.canonicalize().unwrap();
 
 	debug!("Unpacking layers to {:?}", &can_path);
@@ -68,16 +69,11 @@ async fn async_pull(
 
 pub fn pull_registry(
 	registry: &str,
-	username: Option<&str>,
-	password: Option<&str>,
-	bundle: Option<&str>,
+	username: &Option<String>,
+	password: &Option<String>,
+	bundle: PathBuf,
 ) {
 	Runtime::new()
 		.expect("Unable to create Tokio runtime")
-		.block_on(async_pull(
-			registry,
-			username.map(|s| s.to_string()),
-			password.map(|s| s.to_string()),
-			bundle.map(|s| s.to_string()),
-		));
+		.block_on(async_pull(registry, username, password, bundle));
 }

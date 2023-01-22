@@ -3,8 +3,8 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::PathBuf;
 
-pub fn start_container(mut project_dir: PathBuf, id: Option<&str>) {
-	project_dir.push(id.unwrap());
+pub fn start_container(mut project_dir: PathBuf, id: &str) {
+	project_dir.push(id);
 
 	if let Ok(mut file) = fs::OpenOptions::new()
 		.read(true)
@@ -44,6 +44,6 @@ pub fn start_container(mut project_dir: PathBuf, id: Option<&str>) {
 			}
 		}
 	} else {
-		println!("Container `{}` doesn't exists", id.unwrap());
+		println!("Container `{}` doesn't exists", id);
 	}
 }

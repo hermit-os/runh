@@ -1,4 +1,5 @@
 use crate::hermit;
+use crate::logging::LogLevel;
 use crate::mounts;
 use crate::rootfs;
 use crate::state;
@@ -27,24 +28,25 @@ use crate::container::OCIContainer;
 #[allow(clippy::too_many_arguments)]
 pub fn create_container(
 	project_dir: PathBuf,
-	id: Option<&str>,
-	bundle: Option<&str>,
-	pidfile: Option<&str>,
-	console_socket: Option<&str>,
-	hermit_env: Option<&str>,
+	id: &str,
+	bundle: PathBuf,
+	pidfile: Option<PathBuf>,
+	console_socket: Option<PathBuf>,
+	hermit_env: Option<PathBuf>,
 	debug_config: bool,
-	child_log_level: &str,
+	child_log_level: LogLevel,
 ) {
 	let _ = std::fs::create_dir(&project_dir);
 
-	let container_dir = rootfs::resolve_in_rootfs(&PathBuf::from(id.unwrap()), &project_dir);
+	let container_dir = rootfs::resolve_in_rootfs(&PathBuf::from(id), &project_dir);
 	std::fs::create_dir(container_dir.clone()).expect("Unable to create container directory");
 	let container = OCIContainer::new(
-		bundle.unwrap().to_string(),
-		id.unwrap().to_string(),
-		pidfile
-			.unwrap_or(&(container_dir.to_str().unwrap().to_owned() + "/containerpid"))
-			.to_string(),
+		bundle.to_str().unwrap().to_owned(),
+		id.to_string(),
+		pidfile.clone().map_or(
+			container_dir.to_str().unwrap().to_owned() + "/containerpid",
+			|x| x.to_str().unwrap().to_string(),
+		),
 	);
 
 	// write container to disk
@@ -59,12 +61,12 @@ pub fn create_container(
 		.unwrap();
 
 	// link container bundle
-	fs::symlink(PathBuf::from(bundle.unwrap()), container_dir.join("bundle"))
+	fs::symlink(bundle.clone(), container_dir.join("bundle"))
 		.expect("Unable to symlink bundle into project dir!");
 
 	// write container to root dir
 	if debug_config {
-		let spec_path_backup = project_dir.join(format!("container-{}.json", id.unwrap()));
+		let spec_path_backup = project_dir.join(format!("container-{}.json", id));
 		let mut file = OpenOptions::new()
 			.write(true)
 			.create(true)
@@ -79,7 +81,8 @@ pub fn create_container(
 	let bundle_rootfs_path_abs = std::fs::canonicalize(if bundle_rootfs_path.is_absolute() {
 		bundle_rootfs_path
 	} else {
-		PathBuf::from(bundle.unwrap()).join(bundle_rootfs_path)
+		let rootfs = bundle.clone();
+		rootfs.join(bundle_rootfs_path)
 	})
 	.expect("Could not parse path to rootfs!");
 
@@ -199,7 +202,7 @@ pub fn create_container(
 	}
 
 	//Pass spec file
-	let mut config = std::path::PathBuf::from(bundle.unwrap().to_string());
+	let mut config = bundle;
 	config.push("config.json");
 	let spec_file = OpenOptions::new()
 		.read(true)
@@ -229,10 +232,10 @@ pub fn create_container(
 
 	//Setup console socket
 	let socket_fds = if let Some(console_socket_path) = console_socket {
-		let stream = UnixStream::connect(PathBuf::from(console_socket_path)).unwrap_or_else(|_| {
+		let stream = UnixStream::connect(console_socket_path.clone()).unwrap_or_else(|_| {
 			panic!(
 				"Could not connect to socket named by console-socket path at {}",
-				console_socket_path
+				console_socket_path.to_str().unwrap().to_owned()
 			)
 		});
 		let sock_stream_fd = stream.into_raw_fd();
@@ -249,7 +252,7 @@ pub fn create_container(
 
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
-		.arg(child_log_level)
+		.arg(child_log_level.to_string())
 		.arg("--log-format")
 		.arg("json")
 		.arg("init")
