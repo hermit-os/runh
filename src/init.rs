@@ -400,7 +400,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 
 	let hermit_network_config = if args.config.is_hermit_container && user_port == 0 {
 		match tokio_runtime.block_on(network::create_tap()) {
-			Ok(config) => NetworkConfig::VirtIO(config),
+			Ok(config) => NetworkConfig::TapNetwork(config),
 			Err(err) => {
 				warn!("Hermit network setup could not be completed: {err}");
 				NetworkConfig::None
@@ -535,7 +535,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.parse()
 			.expect("RUNH_MICRO_VM was not an unsigned integer!");
 
-		tap_fd = if let NetworkConfig::VirtIO(ref netconf) = hermit_network_config {
+		tap_fd = if let NetworkConfig::TapNetwork(ref netconf) = hermit_network_config {
 			let tap_file = OpenOptions::new()
 				.read(true)
 				.write(true)

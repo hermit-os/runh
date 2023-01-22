@@ -38,7 +38,7 @@ pub fn prepare_environment(project_dir: &Path, hermit_env_path: &Option<PathBuf>
 }
 
 pub enum NetworkConfig {
-	VirtIO(network::VirtioNetworkConfig),
+	TapNetwork(network::VirtioNetworkConfig),
 	UserNetwork(u16),
 	None,
 }
@@ -109,7 +109,7 @@ pub fn get_qemu_args(
 	}
 
 	let mut args_string = match netconf {
-		NetworkConfig::VirtIO(network_config) => {
+		NetworkConfig::TapNetwork(network_config) => {
 			exec_args.push("-netdev".to_string());
 			exec_args.push(format!("tap,id=net0,fd={}", tap_fd.unwrap()));
 			exec_args.push("-device".to_string());
@@ -137,7 +137,7 @@ pub fn get_qemu_args(
 				user_port, user_port
 			));
 			exec_args.push("-device".to_string());
-			exec_args.push("rtl8139,netdev=u1".to_string());
+			exec_args.push("virtio-net-pci,netdev=u1,disable-legacy=on".to_string());
 			exec_args.push("-append".to_string());
 
 			"".to_string()
