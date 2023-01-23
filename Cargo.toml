@@ -24,7 +24,7 @@ goblin = { version = "0.6", default-features = false, features = ["elf64", "elf3
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
 nix = "0.26"
-oci-spec = "0.5"
+oci-spec = "0.6"
 path-clean = "0.1"
 procfs = { version = "0.14", default-features = false }
 rtnetlink = { git = "https://github.com/rust-netlink/rtnetlink.git" }
