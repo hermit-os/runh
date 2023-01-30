@@ -39,7 +39,7 @@ impl Error for VirtioNetworkError {
 
 pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
 	let (connection, handle, _) = rtnetlink::new_connection().unwrap();
-	let _ = tokio::spawn(connection);
+	tokio::spawn(connection);
 	let mut links = handle.link().get().match_name("lo".to_string()).execute();
 	if let Some(link) = links.try_next().await? {
 		handle.link().set(link.header.index).up().execute().await?
@@ -56,7 +56,7 @@ pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
 */
 pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Error>> {
 	let (connection, handle, _) = rtnetlink::new_connection()?;
-	let _ = tokio::spawn(connection);
+	tokio::spawn(connection);
 
 	// Check for an existing tap device
 	let mut tap_link_req = handle
