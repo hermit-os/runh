@@ -20,7 +20,6 @@ mod mounts;
 mod namespaces;
 mod network;
 mod paths;
-mod pull;
 mod rootfs;
 mod spec;
 mod start;
@@ -33,7 +32,6 @@ use crate::init::*;
 use crate::kill::*;
 use crate::list::*;
 use crate::logging::*;
-use crate::pull::*;
 use crate::spec::*;
 use crate::start::*;
 use crate::state::*;
@@ -109,12 +107,6 @@ fn parse_matches(cli: &Cli) {
 		Commands::Start { container_id } => start_container(project_dir.clone(), container_id),
 		Commands::List => list_containers(project_dir.clone()),
 		Commands::Init => init_container(),
-		Commands::Pull {
-			image,
-			bundle,
-			username,
-			password,
-		} => pull_registry(image, username, password, bundle.clone()),
 		_ => {
 			error!(
 				"Subcommand is missing or currently not supported! Run `runh -h` for more information!"
@@ -194,21 +186,6 @@ enum Commands {
 	List,
 	/// Init process running inside a newly created container. Do not use outside of runh!
 	Init,
-	/// Pull an image or a repository from a registry
-	Pull {
-		/// Image name
-		#[arg(value_name = "NAME[:TAG|@DIGEST]")]
-		image: String,
-		/// path to the root of the bundle directory
-		#[arg(short = 'b', long)]
-		bundle: PathBuf,
-		/// Username for accessing the registry
-		#[arg(short = 'u', long)]
-		username: Option<String>,
-		/// Password for accessing the registry
-		#[arg(short = 'p', long)]
-		password: Option<String>,
-	},
 	/// Checkpoint a running container (not supported)
 	Checkpoint,
 	/// Restore a container from a previous checkpoint (not supported)
