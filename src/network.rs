@@ -39,7 +39,7 @@ impl Error for VirtioNetworkError {
 
 pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
 	let (connection, handle, _) = rtnetlink::new_connection().unwrap();
-	let _ = tokio::spawn(connection);
+	tokio::spawn(connection);
 	let mut links = handle.link().get().match_name("lo".to_string()).execute();
 	if let Some(link) = links.try_next().await? {
 		handle.link().set(link.header.index).up().execute().await?
@@ -56,7 +56,7 @@ pub async fn set_lo_up() -> Result<(), rtnetlink::Error> {
 */
 pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Error>> {
 	let (connection, handle, _) = rtnetlink::new_connection()?;
-	let _ = tokio::spawn(connection);
+	tokio::spawn(connection);
 
 	// Check for an existing tap device
 	let mut tap_link_req = handle
@@ -177,7 +177,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 
 	// Read tap device numbers associated with macvtap
 	let tap_dev_file_path = PathBuf::from("/sys/class/net/macvtap0/macvtap")
-		.join(format!("tap{}", macvtap_index))
+		.join(format!("tap{macvtap_index}"))
 		.join("dev");
 	let dev_file_string = std::fs::read_to_string(&tap_dev_file_path)
 		.unwrap_or_else(|_| panic!("Could not open sysfs entry at {:?}", &tap_dev_file_path));
@@ -190,7 +190,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 	// Create tap device in container
 	let device = nix::sys::stat::makedev(major, minor);
 	nix::sys::stat::mknod(
-		&PathBuf::from(format!("/dev/tap{}", macvtap_index)),
+		&PathBuf::from(format!("/dev/tap{macvtap_index}")),
 		SFlag::S_IFCHR,
 		nix::sys::stat::Mode::from_bits(0o600u32).unwrap(),
 		device,
