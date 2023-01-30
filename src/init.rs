@@ -602,7 +602,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		.custom_flags(libc::O_CLOEXEC)
 		.read(false)
 		.write(true)
-		.open(format!("/proc/self/fd/{}", fifo_fd))
+		.open(format!("/proc/self/fd/{fifo_fd}"))
 		.expect("Could not open exec fifo!");
 
 	write!(exec_fifo, "\0").expect("Could not write to exec fifo!");

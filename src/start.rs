@@ -44,6 +44,6 @@ pub fn start_container(mut project_dir: PathBuf, id: &str) {
 			}
 		}
 	} else {
-		println!("Container `{}` doesn't exists", id);
+		println!("Container `{id}` doesn't exists");
 	}
 }

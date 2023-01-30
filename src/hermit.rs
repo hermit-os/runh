@@ -133,8 +133,7 @@ pub fn get_qemu_args(
 		NetworkConfig::UserNetwork(user_port) => {
 			exec_args.push("-netdev".to_string());
 			exec_args.push(format!(
-				"user,id=u1,hostfwd=tcp::{}-:{},net=192.168.76.0/24,dhcpstart=192.168.76.9",
-				user_port, user_port
+				"user,id=u1,hostfwd=tcp::{user_port}-:{user_port},net=192.168.76.0/24,dhcpstart=192.168.76.9"
 			));
 			exec_args.push("-device".to_string());
 			exec_args.push("virtio-net-pci,netdev=u1,disable-legacy=on".to_string());

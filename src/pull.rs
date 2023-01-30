@@ -21,7 +21,7 @@ async fn async_pull(
 	debug!("Select {}", dkref);
 
 	let image = &dkref.repository();
-	let login_scope = format!("repository:{}:pull", image);
+	let login_scope = format!("repository:{image}:pull");
 	let version = &dkref.version().clone();
 	let dclient = Client::configure()
 		.registry(&dkref.registry().clone())

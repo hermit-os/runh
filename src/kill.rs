@@ -20,7 +20,7 @@ pub fn kill_container(project_dir: PathBuf, id: &str, sig: &str, all: bool) {
 			.unwrap_or_else(|_| panic!("Could not parse signal number {}", sig))
 	} else {
 		let signal_str = if !sig.starts_with("SIG") {
-			format!("SIG{}", sig)
+			format!("SIG{sig}")
 		} else {
 			sig.to_owned()
 		};

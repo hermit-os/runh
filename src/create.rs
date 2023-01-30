@@ -66,7 +66,7 @@ pub fn create_container(
 
 	// write container to root dir
 	if debug_config {
-		let spec_path_backup = project_dir.join(format!("container-{}.json", id));
+		let spec_path_backup = project_dir.join(format!("container-{id}.json"));
 		let mut file = OpenOptions::new()
 			.write(true)
 			.create(true)
@@ -335,7 +335,7 @@ pub fn create_container(
 	let pid = i32::from_le_bytes(pid_buffer);
 	if let Some(pid_file_path) = pidfile {
 		let mut file = std::fs::File::create(pid_file_path).expect("Could not create pid-File!");
-		write!(file, "{}", pid).expect("Could not write to pid-file!");
+		write!(file, "{pid}").expect("Could not write to pid-file!");
 	}
 	let mut sig_buffer = [0u8];
 
@@ -360,7 +360,7 @@ pub fn create_container(
 		.create(true)
 		.open(state_location)
 		.expect("Could not create state-file in container dir!");
-	write!(state_file, "{}", pid).expect("Could not write pid to state-file!");
+	write!(state_file, "{pid}").expect("Could not write pid to state-file!");
 
 	debug!("Running prestart hooks...");
 	if let Some(hooks) = container.spec().hooks().as_ref() {

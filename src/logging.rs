@@ -107,8 +107,8 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 				.unwrap(),
 			};
 			if let Some(file) = &mut *file_lock {
-				if let Err(err) = writeln!(file, "{}", message) {
-					println!("ERROR in logger: {} Writing to stdout instead!", err);
+				if let Err(err) = writeln!(file, "{message}") {
+					println!("ERROR in logger: {err} Writing to stdout instead!");
 					self.print_level(record.level());
 					println!(" {}", record.args());
 				}
@@ -118,7 +118,7 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 			}
 			let mut file_lock_backup = self.log_file_internal.lock().unwrap();
 			if let Some(file_backup) = &mut *file_lock_backup {
-				writeln!(file_backup, "{}", message).expect("Could not write to backup log file!");
+				writeln!(file_backup, "{message}").expect("Could not write to backup log file!");
 			}
 		}
 	}
