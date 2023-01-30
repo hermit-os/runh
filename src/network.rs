@@ -1,6 +1,6 @@
 use futures::TryStreamExt;
+use netlink_packet_route::{address, link, route, ErrorMessage, MACVLAN_MODE_PASSTHRU};
 use nix::sys::stat::SFlag;
-use rtnetlink::packet::{address, link, route, ErrorMessage, MACVLAN_MODE_PASSTHRU};
 use rtnetlink::Error::NetlinkError;
 use std::path::PathBuf;
 use std::{error::Error, fmt, net::Ipv4Addr};
