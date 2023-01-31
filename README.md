@@ -1,22 +1,29 @@
 # runh
 
-`run`is a CLI tool for spawning and running RustyHermit containers.
+`run` is a CLI tool for spawning and running RustyHermit containers.
 To start RustyHermit application within a isolated lightweight virtual machine, a directory with the application and the loader must be created.
 In this example, the binaries will be downloaded from a docker registry.
 
+At first, the required tools will be downloaded and installed to run RustyHermit images.
+
 ```sh
-$ mkdir data
-$ runh pull -b data -u USERNAME -p PASSWORD  registry.git.rwth-aachen.de/acs/public/hermitcore/rusty-hermit/demo
+$ docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
+$ sudo mkdir -p /run/runh/hermit
+$ sudo tar -xf hermit-env.tar -C /run/runh/hermit
 ```
 
-Please note, that is option is only possible, if you have a valid account at the docker registry of the RWTH Aachen University.
-
-In this case, the application an the loader is stored in the subdirectory `data`.
+Afterwards, the RustyHermit application will be download and store in a local directory.
 
 ```sh
-$ ls data
-hermit
-$ ls -la data/hermit
+$ docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > runh-image.tar
+$ mkdir -p ./runh-image/rootfs
+$ tar -xf runh-image.tar -C ./runh-image/rootfs
+```
+
+In this case, the application an the loader is stored in the subdirectory `runh-image/rootfs`.
+
+```sh
+$ ls ./runh-image/rootfs
 drwxr-xr-x 1 stefan stefan     128 May 24 12:27 .
 drwxr-xr-x 1 stefan stefan      96 May 24 12:27 ..
 -rwxr-xr-x 1 stefan stefan 3651080 May 20 13:53 rusty_demo
@@ -24,16 +31,19 @@ drwxr-xr-x 1 stefan stefan      96 May 24 12:27 ..
 ```
 
 An OCI specification file is required to start the hypervisor within an isolated environment.
-The command `spec` generate a starter file.
-Editing of this file is required to achieve desired results.
-To run `rusty_demo`, it is required to set the args parameter in the spec to call `rusty_demo`.
-This can be done using the sed command or a text editor.
-The following commands create a bundle for `rusty_demo`, change the
-default args parameter in the spec from `sh` to `/hermit/rusty_demo`:
+The following commands generate a starter bundle for `rusty_demo`, create and start the container:
 
 ```sh
-$ runh spec -b data
-$ sed -i 's;"sh";"/hermit/rusty_demo";' data/config.json
+$ cd runh-image
+$ sudo runh --root /run/runh spec --bundle . --args /hermit/rusty_demo
+$ sudo runh --root /run/runh -l debug create  --bundle . runh-container
+$ sudo runh --root /run/runh -l debug start runh-container
+```
+
+After a successfull test, the container can be deleted with following command:
+
+```sh
+$ sudo runh --root /run/runh -l debug delete runh-container
 ```
 
 ## Funding
