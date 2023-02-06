@@ -30,7 +30,7 @@ jobs:
         RUN apt install -y --no-install-recommends qemu-system-x86 qemu-system-x86-microvm net-tools
         END
     - name: Build and push container
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v4
       with:
         context: .
         push: true
@@ -42,7 +42,7 @@ jobs:
         RUN apk add --no-cache qemu qemu-system-x86_64
         END
     - name: Build and push container
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v4
       with:
         context: .
         push: true
