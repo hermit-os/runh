@@ -14,32 +14,22 @@ use std::sync::Mutex;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum LogFormat {
+	#[default]
 	Text,
 	Json,
 }
 
-impl Default for LogFormat {
-	fn default() -> LogFormat {
-		LogFormat::Text
-	}
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum LogLevel {
+	#[default]
 	Info,
 	Warn,
 	Debug,
 	Trace,
 	Error,
 	Off,
-}
-
-impl Default for LogLevel {
-	fn default() -> LogLevel {
-		LogLevel::Info
-	}
 }
 
 impl LogLevel {
