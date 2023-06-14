@@ -10,6 +10,7 @@ use nix::sys::socket::SockFlag;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
+use std::borrow::Cow;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
@@ -81,7 +82,7 @@ pub fn create_container(
 	let bundle_rootfs_path_abs = std::fs::canonicalize(if bundle_rootfs_path.is_absolute() {
 		bundle_rootfs_path
 	} else {
-		let rootfs = bundle.clone();
+		let rootfs = &bundle;
 		rootfs.join(bundle_rootfs_path)
 	})
 	.expect("Could not parse path to rootfs!");
@@ -171,8 +172,7 @@ pub fn create_container(
 	});
 
 	//Setup file system
-	let mut rootfs_path_abs = bundle_rootfs_path_abs.clone();
-	if is_hermit_container {
+	let rootfs_path_abs = if is_hermit_container {
 		let overlay_root = container_dir.join("rootfs");
 		let overlay_workdir = overlay_root.join("work");
 		let overlay_upperdir = overlay_root.join("diff");
@@ -198,8 +198,10 @@ pub fn create_container(
 			Some(datastr.as_str()),
 		)
 		.unwrap_or_else(|err| panic!("Could not create overlay-fs at {:?}: {}", overlay_root, err));
-		rootfs_path_abs = std::fs::canonicalize(overlay_mergeddir).unwrap();
-	}
+		Cow::from(overlay_mergeddir.canonicalize().unwrap())
+	} else {
+		Cow::from(&bundle_rootfs_path_abs)
+	};
 
 	//Pass spec file
 	let mut config = bundle;
