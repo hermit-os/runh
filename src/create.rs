@@ -309,8 +309,7 @@ pub fn create_container(
 		let bundle_rootfs_path_str = bundle_rootfs_path_abs
 			.as_os_str()
 			.to_str()
-			.expect("Could not convert rootfs-path to string!")
-			.to_string();
+			.expect("Could not convert rootfs-path to string!");
 
 		debug!(
 			"Write bundle rootfs path {} (lenght {}) to init-pipe!",
