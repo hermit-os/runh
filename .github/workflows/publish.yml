@@ -33,7 +33,7 @@ jobs:
         FROM ubuntu:latest
         RUN apt update
         RUN apt install -y --no-install-recommends libcap-ng0 libseccomp2 qemu-system-x86 qemu-system-x86-microvm net-tools
-        COPY --from=builder /root/.cargo/bin/virtiofsd /usr/bin/virtiofsd
+        COPY --from=builder /usr/local/cargo/bin/virtiofsd /usr/bin/virtiofsd
         RUN chmod 0755 /usr/bin/virtiofsd
         END
     - name: Build and push container
