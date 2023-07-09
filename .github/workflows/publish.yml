@@ -45,7 +45,7 @@ jobs:
     - name: Create dockerfile for Alpine
       run: |
         cat << END > Dockerfile
-        FROM alpine:latest as build
+        FROM alpine:latest as builder
         RUN apk add --no-cache rust libseccomp-dev libcap-ng-dev
         RUN cargo install --git https://gitlab.com/virtio-fs/virtiofsd.git 
         FROM alpine:latest
