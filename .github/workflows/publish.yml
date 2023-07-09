@@ -30,7 +30,7 @@ jobs:
         RUN apt update
         RUN apt install -y --no-install-recommends libcap-ng-dev libseccomp-dev
         RUN cargo install --git https://gitlab.com/virtio-fs/virtiofsd.git
-        FROM bookworm:latest
+        FROM ubuntu:latest
         RUN apt update
         RUN apt install -y --no-install-recommends libcap-ng libseccomp qemu-system-x86 qemu-system-x86-microvm net-tools
         COPY --from=builder /root/.cargo/bin/virtiofsd /usr/bin/virtiofsd
