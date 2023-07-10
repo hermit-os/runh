@@ -609,6 +609,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "netlink-packet-core"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72724faf704479d67b388da142b186f916188505e7e0b26719019c525882eda4"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "netlink-packet-utils",
+]
+
+[[package]]
 name = "netlink-packet-route"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -618,7 +629,7 @@ dependencies = [
  "bitflags",
  "byteorder",
  "libc",
- "netlink-packet-core",
+ "netlink-packet-core 0.5.0",
  "netlink-packet-utils",
 ]
 
@@ -643,7 +654,7 @@ dependencies = [
  "bytes",
  "futures",
  "log",
- "netlink-packet-core",
+ "netlink-packet-core 0.5.0",
  "netlink-sys",
  "thiserror",
  "tokio",
@@ -852,7 +863,7 @@ checksum = "ed7d42da676fdf7e470e2502717587dd1089d8b48d9d1b846dcc3c01072858cb"
 dependencies = [
  "futures",
  "log",
- "netlink-packet-core",
+ "netlink-packet-core 0.5.0",
  "netlink-packet-route",
  "netlink-packet-utils",
  "netlink-proto",
@@ -875,7 +886,7 @@ dependencies = [
  "goblin",
  "libc",
  "log",
- "netlink-packet-core",
+ "netlink-packet-core 0.7.0",
  "netlink-packet-route",
  "nix 0.26.2",
  "oci-spec",

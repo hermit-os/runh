@@ -22,7 +22,7 @@ getset = "0.1"
 goblin = { version = "0.7", default-features = false, features = ["elf64", "elf32", "endian_fd"] }
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
-netlink-packet-core = "0.5"
+netlink-packet-core = "0.7"
 netlink-packet-route = "0.15"
 nix = "0.26"
 oci-spec = "0.6"
