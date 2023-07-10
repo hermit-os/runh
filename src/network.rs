@@ -3,6 +3,7 @@ use netlink_packet_core::ErrorMessage;
 use netlink_packet_route::{address, link, route, MACVLAN_MODE_PASSTHRU};
 use nix::sys::stat::SFlag;
 use rtnetlink::Error::NetlinkError;
+use std::num::NonZeroI32;
 use std::path::PathBuf;
 use std::{error::Error, fmt, net::Ipv4Addr};
 
@@ -75,7 +76,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 			warn!("Tap device exists in namespace but cannot be read. Trying to re-do setup...");
 			true
 		}
-		Err(NetlinkError(ErrorMessage { code, .. })) if code.abs() == libc::ENODEV => {
+		Err(NetlinkError(ErrorMessage { code, .. })) if code == NonZeroI32::new(-libc::ENODEV) => {
 			// This is the expected case that is triggered when the tap device does not exist in the current namespace
 			true
 		}
