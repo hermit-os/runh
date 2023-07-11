@@ -8,6 +8,11 @@ updates:
     schedule:
       interval: "weekly"
       timezone: "Europe/Berlin"
+    groups:
+      netlink:
+        patterns:
+          - "netlink*"
+          - "rtnetlink"
 
   - package-ecosystem: "github-actions"
     directory: "/"
