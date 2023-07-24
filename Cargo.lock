@@ -836,9 +836,9 @@ dependencies = [
 
 [[package]]
 name = "rtnetlink"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6333af2adba73478936174a0ef3edf05fbfa058539c21d567344a53bb6d75cfd"
+checksum = "7a552eb82d19f38c3beed3f786bd23aa434ceb9ac43ab44419ca6d67a7e186c0"
 dependencies = [
  "futures",
  "log",
