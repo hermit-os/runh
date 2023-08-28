@@ -210,9 +210,10 @@ fn init_stage_parent(args: SetupArgs) -> isize {
 			config: args.config.clone(),
 		})
 	});
-	let child_pid = sched::clone(cb, stack, CloneFlags::CLONE_PARENT, Some(libc::SIGCHLD))
-		.unwrap()
-		.as_raw();
+	let child_pid =
+		unsafe { sched::clone(cb, stack, CloneFlags::CLONE_PARENT, Some(libc::SIGCHLD)) }
+			.unwrap()
+			.as_raw();
 
 	debug!("Send child PID to runh create");
 	let mut init_pipe = unsafe { File::from_raw_fd(args.init_pipe) };

@@ -26,7 +26,7 @@ pub fn get_cloneflag(typ: runtime::LinuxNamespaceType) -> CloneFlags {
 			// TODO: This is missing from both libc and nix.
 			// https://github.com/rust-lang/libc/issues/3033
 			const CLONE_NEWTIME: c_int = 0x80;
-			unsafe { CloneFlags::from_bits_unchecked(CLONE_NEWTIME) }
+			CloneFlags::from_bits_retain(CLONE_NEWTIME)
 		}
 	}
 }
