@@ -73,14 +73,14 @@ pub fn get_qemu_args(
 
 	if kvm {
 		exec_args.append(
-			&mut vec!["--enable-kvm", "-cpu", "host"]
+			&mut ["--enable-kvm", "-cpu", "host"]
 				.iter()
 				.map(|s| s.to_string())
 				.collect(),
 		);
 	} else {
 		exec_args.append(
-			&mut vec![
+			&mut [
 				"-cpu",
 				"qemu64,apic,fsgsbase,rdtscp,xsave,xsaveopt,fxsr,rdrand",
 			]
@@ -92,7 +92,7 @@ pub fn get_qemu_args(
 
 	if micro_vm {
 		exec_args.append(
-			&mut vec![
+			&mut [
 				"-M",
 				"microvm,x-option-roms=off,pit=off,pic=off,rtc=on,auto-kernel-cmdline=off",
 				"-global",
