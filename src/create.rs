@@ -219,7 +219,7 @@ pub fn create_container(
 			child_fd: 3,
 		},
 		FdMapping {
-			parent_fd: child_socket_fd,
+			parent_fd: child_socket_fd.as_raw_fd(),
 			child_fd: 4,
 		},
 		FdMapping {
@@ -271,14 +271,14 @@ pub fn create_container(
 		.expect("Unable to spawn runh init process");
 
 	debug!("Started init process. Closing child fds in create process.");
-	nix::unistd::close(child_socket_fd).expect("Could not close child_socket_fd!");
+	nix::unistd::close(child_socket_fd.as_raw_fd()).expect("Could not close child_socket_fd!");
 	nix::unistd::close(child_log_fd).expect("Could not close child_log_fd!");
 	if let Some(stream_fd) = socket_fds {
 		nix::unistd::close(stream_fd).expect("Could not close console stream_fd!");
 	}
 
 	debug!("Waiting for first message from child...");
-	let mut init_pipe = unsafe { File::from_raw_fd(parent_socket_fd) };
+	let mut init_pipe = File::from(parent_socket_fd);
 	let mut buffer: [u8; 1] = [1];
 	init_pipe
 		.read_exact(&mut buffer)

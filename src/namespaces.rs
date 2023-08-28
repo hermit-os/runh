@@ -1,6 +1,6 @@
 use crate::flags;
 use oci_spec::runtime;
-use std::{fs::File, os::unix::prelude::AsRawFd};
+use std::fs::File;
 
 struct ConfiguredNamespace<'a>(File, &'a runtime::LinuxNamespace);
 
@@ -29,7 +29,7 @@ pub fn join_namespaces(namespaces: &[runtime::LinuxNamespace]) {
 	for ns_config in &configured_ns {
 		debug!("joining namespace {:?}", ns_config.1);
 		let flags = flags::get_cloneflag(ns_config.1.typ());
-		nix::sched::setns(ns_config.0.as_raw_fd(), flags)
+		nix::sched::setns(&ns_config.0, flags)
 			.unwrap_or_else(|_| panic!("Failed to join NS {:?}", ns_config.1));
 	}
 }

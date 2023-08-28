@@ -24,7 +24,17 @@ libc = "0.2"
 log = { version = "0.4", features = ["std"] }
 netlink-packet-core = "0.7"
 netlink-packet-route = "0.17"
-nix = "0.26"
+nix = { version = "0.27", features = [
+    "hostname",
+    "ioctl",
+    "mount", 
+    "sched",
+    "socket",
+    "term",
+    "ucontext",
+    "user",
+    "zerocopy",
+] }
 oci-spec = "0.6"
 path-clean = "1.0"
 procfs = { version = "0.15", default-features = false }
