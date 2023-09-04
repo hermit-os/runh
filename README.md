@@ -7,7 +7,7 @@ In this example, the binaries will be downloaded from a docker registry.
 At first, the required tools will be downloaded and installed to run RustyHermit images.
 
 ```sh
-$ docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
+$ docker export $(docker create ghcr.io/hermit-os/hermit_env:latest) > hermit-env.tar
 $ sudo mkdir -p /run/runh/hermit
 $ sudo tar -xf hermit-env.tar -C /run/runh/hermit
 ```
@@ -15,7 +15,7 @@ $ sudo tar -xf hermit-env.tar -C /run/runh/hermit
 Afterwards, the RustyHermit application will be download and store in a local directory.
 
 ```sh
-$ docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > runh-image.tar
+$ docker export $(docker create ghcr.io/hermit-os/rusty_demo:latest) > runh-image.tar
 $ mkdir -p ./runh-image/rootfs
 $ tar -xf runh-image.tar -C ./runh-image/rootfs
 ```
