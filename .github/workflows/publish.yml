@@ -21,7 +21,7 @@ jobs:
       uses: docker/login-action@v2
       with:
         registry: ghcr.io
-        username: hermitcore
+        username: hermit-os
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Create dockerfile for Ubuntu
       run: |
@@ -41,7 +41,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: ghcr.io/hermitcore/hermit_env:latest
+        tags: ghcr.io/hermit-os/hermit_env:latest
     - name: Create dockerfile for Alpine
       run: |
         cat << END > Dockerfile
@@ -58,5 +58,5 @@ jobs:
       with:
         context: .
         push: true
-        tags: ghcr.io/hermitcore/hermit_env_alpine:latest
+        tags: ghcr.io/hermit-os/hermit_env_alpine:latest
     

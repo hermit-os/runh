@@ -10,7 +10,7 @@ use crate::spec::runtime;
 #[clap(
     about(crate_description!()),
     author(crate_authors!("\n")),
-    after_help("More info at: https://github.com/hermitcore/runh"),
+    after_help("More info at: https://github.com/hermit-os/runh"),
     global_setting(AppSettings::ColoredHelp),
     version(crate_version!()),
 )]

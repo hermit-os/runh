@@ -55,24 +55,24 @@ jobs:
       run: systemctl status crio
     - name: Pull images
       run: |
-        docker pull ghcr.io/hermitcore/hermit_env:latest
-        docker pull ghcr.io/hermitcore/rusty_demo:latest
-        sudo crictl pull ghcr.io/hermitcore/rusty_demo:latest
+        docker pull ghcr.io/hermit-os/hermit_env:latest
+        docker pull ghcr.io/hermit-os/rusty_demo:latest
+        sudo crictl pull ghcr.io/hermit-os/rusty_demo:latest
     - name: Setup Hermit environment
       run: |
-        docker export $(docker create ghcr.io/hermitcore/hermit_env:latest) > hermit-env.tar
+        docker export $(docker create ghcr.io/hermit-os/hermit_env:latest) > hermit-env.tar
         sudo mkdir -p /run/runh/hermit
         sudo tar -xf hermit-env.tar -C /run/runh/hermit
     - name: Setup rootfs
       run: |
-        docker export $(docker create ghcr.io/hermitcore/rusty_demo:latest) > runh-image.tar
+        docker export $(docker create ghcr.io/hermit-os/rusty_demo:latest) > runh-image.tar
         mkdir -p /home/runner/runh-image/rootfs
         tar -xf runh-image.tar -C /home/runner/runh-image/rootfs
     - name: Create CRI configurations
       run: |
         echo '{ "metadata": { "name": "hermit-sandbox", "namespace": "default", "attempt": 1, "uid": "hdishd83djaidwnduwk28bcsb" }, "log_directory": "/tmp", "linux": { } }' \
             > /home/runner/pod.json
-        echo '{ "metadata": { "name": "rusty_demo" }, "image":{ "image": "ghcr.io/hermitcore/rusty_demo:latest" }, "log_path":"rusty_demo.log", "linux": { } }' \
+        echo '{ "metadata": { "name": "rusty_demo" }, "image":{ "image": "ghcr.io/hermit-os/rusty_demo:latest" }, "log_path":"rusty_demo.log", "linux": { } }' \
             > /home/runner/container.json
     - uses: actions/checkout@v3
       with:
@@ -128,7 +128,7 @@ jobs:
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
       run: |
-         docker run --runtime=runh -it -d -p 9975:9975 ghcr.io/hermitcore/rusty_demo:latest > container.id
+         docker run --runtime=runh -it -d -p 9975:9975 ghcr.io/hermit-os/rusty_demo:latest > container.id
          export CONTAINERID=$(cat container.id)
          sleep 2
          docker logs $CONTAINERID
