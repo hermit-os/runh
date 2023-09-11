@@ -9,7 +9,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -19,7 +19,7 @@ jobs:
     name: Format check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -74,7 +74,7 @@ jobs:
             > /home/runner/pod.json
         echo '{ "metadata": { "name": "rusty_demo" }, "image":{ "image": "ghcr.io/hermit-os/rusty_demo:latest" }, "log_path":"rusty_demo.log", "linux": { } }' \
             > /home/runner/container.json
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
          lfs: true
     - uses: dtolnay/rust-toolchain@stable
