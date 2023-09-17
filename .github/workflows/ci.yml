@@ -117,6 +117,7 @@ jobs:
          export PODID=$(cat pod.id)        
          crictl create $PODID /home/runner/container.json /home/runner/pod.json > container.id
          export CONTAINERID=$(cat container.id)
+         echo "CONTAINERID: $CONTAINERID"
          crictl start $CONTAINERID
          sleep 5
          crictl logs $CONTAINERID
