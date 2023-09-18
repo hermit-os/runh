@@ -37,7 +37,7 @@ jobs:
         RUN chmod 0755 /usr/bin/virtiofsd
         END
     - name: Build and push container
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
         context: .
         push: true
@@ -54,7 +54,7 @@ jobs:
         RUN chmod 0755 /usr/bin/virtiofsd
         END
     - name: Build and push container
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
         context: .
         push: true
