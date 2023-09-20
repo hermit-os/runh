@@ -532,7 +532,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.parse()
 			.expect("RUNH_KVM was not an unsigned integer!");
 		let micro_vm: u32 = env::var("RUNH_MICRO_VM")
-			.unwrap_or_else(|_| "1".to_string())
+			.unwrap_or_else(|_| "0".to_string())
 			.parse()
 			.expect("RUNH_MICRO_VM was not an unsigned integer!");
 
