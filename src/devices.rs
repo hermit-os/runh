@@ -200,7 +200,13 @@ pub fn mount_hermit_devices(rootfs: &Path) {
 	if kvm > 0 {
 		mount_device(rootfs, &PathBuf::from("/dev/kvm"), 10, 232);
 	}
-	mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
+	let vhost: u32 = std::env::var("RUNH_VHOST")
+		.unwrap_or_else(|_| "0".to_string())
+		.parse()
+		.expect("RUNG_VHOST was not an unsigned integer!");
+	if vhost > 0 {
+		mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
+	}
 }
 
 fn mount_device(rootfs: &Path, destination_rel: &Path, major: u64, minor: u64) {
