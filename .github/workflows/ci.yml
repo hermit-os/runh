@@ -90,7 +90,9 @@ jobs:
     - name: Build runh
       run: |
         cargo install --locked --path .
-        sudo ln -s /home/runner/.cargo/bin/runh /bin/runh
+        sudo cp /home/runner/.cargo/bin/runh /usr/sbin/runh
+        sudo chown root:root /usr/sbin/runh
+        sudo chmod a+rx /usr/sbin/runh
     - name: Setup runh with Docker
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
