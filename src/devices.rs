@@ -200,12 +200,10 @@ pub fn mount_hermit_devices(rootfs: &Path) {
 	if kvm > 0 {
 		mount_device(rootfs, &PathBuf::from("/dev/kvm"), 10, 232);
 	}
-	let vhost: u32 = std::env::var("RUNH_VHOST")
-		.unwrap_or_else(|_| "0".to_string())
-		.parse()
-		.expect("RUNG_VHOST was not an unsigned integer!");
-	if vhost > 0 {
+	if std::fs::metadata("/dev/vhost-net").is_ok() {
 		mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
+	} else {
+		debug!("/dev/vhost-net doesn't exist and is consequently not supported!");
 	}
 }
 
