@@ -50,7 +50,7 @@ jobs:
         cat << END > /etc/crictl.yaml
         runtime-endpoint: "unix:///var/run/crio/crio.sock"
         image-endpoint: "unix:///var/run/crio/crio.sock"
-        timeout: 0
+        timeout: 2
         debug: true
         END
     - name: Install crictl
