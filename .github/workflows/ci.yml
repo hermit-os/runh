@@ -105,7 +105,7 @@ jobs:
       id: runh-crio-setup
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/\[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.runh\]\nruntime_path = "\/home\/runner\/.cargo\/bin\/runh"\nruntime_type = "oci"\nruntime_root = "\/run\/runh"\n\n\[crio.runtime.runtimes.runc\]/g' /etc/crio/crio.conf
+        sed -i 's/\[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.runh\]\nruntime_path = ""\nruntime_type = "oci"\nruntime_root = "\/run\/runh"\n\n\[crio.runtime.runtimes.runc\]/g' /etc/crio/crio.conf
         systemctl restart crio || systemctl status crio
         >&2 cat /etc/crio/crio.conf
     - name: Test runh standalone
