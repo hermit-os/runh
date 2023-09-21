@@ -203,7 +203,7 @@ pub fn mount_hermit_devices(rootfs: &Path) {
 	if std::fs::metadata("/dev/vhost-net").is_ok() {
 		mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
 	} else {
-		debug!("/dev/vhost-net doesn't exist and is consequently not supported!");
+		warn!("/dev/vhost-net doesn't exist and is consequently not supported!");
 	}
 }
 
