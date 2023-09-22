@@ -27,7 +27,7 @@ jobs:
 
   test:
     name: Setup, build and test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Install CRI-O
@@ -36,7 +36,7 @@ jobs:
         export DEBIAN_FRONTEND=noninteractive
         apt update --fix-missing
         apt-get install -y curl gnupg tree conntrack
-        export OS=xUbuntu_20.04
+        export OS=xUbuntu_22.04
         export VERSION=1.25
         echo "deb [signed-by=/usr/share/keyrings/libcontainers-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
         echo "deb [signed-by=/usr/share/keyrings/libcontainers-crio-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:$VERSION.list
