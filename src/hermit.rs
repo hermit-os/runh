@@ -62,6 +62,8 @@ pub fn get_qemu_args(
 		"1G",
 		"-serial",
 		"stdio",
+		"-device",
+		"isa-debug-exit,iobase=0xf4,iosize=0x04",
 		"-kernel",
 		kernel,
 		"-initrd",
@@ -99,8 +101,6 @@ pub fn get_qemu_args(
 				"virtio-mmio.force-legacy=off",
 				"-nodefaults",
 				"-no-user-config",
-				"-device",
-				"isa-debug-exit,iobase=0xf4,iosize=0x04",
 			]
 			.iter()
 			.map(|s| s.to_string())
