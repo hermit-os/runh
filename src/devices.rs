@@ -193,13 +193,12 @@ pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
 }
 
 pub fn mount_hermit_devices(rootfs: &Path) {
-	let kvm: u32 = std::env::var("RUNH_KVM")
-		.unwrap_or_else(|_| "0".to_string())
-		.parse()
-		.expect("RUNH_KVM was not an unsigned integer!");
-	if kvm > 0 {
+	if std::fs::metadata("/dev/kvm").is_ok() {
 		mount_device(rootfs, &PathBuf::from("/dev/kvm"), 10, 232);
+	} else {
+		warn!("/dev/kvm doesn't exist and is consequently not supported!");
 	}
+
 	if std::fs::metadata("/dev/vhost-net").is_ok() {
 		mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
 	} else {

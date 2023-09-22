@@ -527,10 +527,6 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.to_owned();
 		let kernel_path = app_root.join("rusty-loader");
 		let kernel = kernel_path.as_os_str().to_str().unwrap();
-		let kvm: u32 = env::var("RUNH_KVM")
-			.unwrap_or_else(|_| "0".to_string())
-			.parse()
-			.expect("RUNH_KVM was not an unsigned integer!");
 		let micro_vm: u32 = env::var("RUNH_MICRO_VM")
 			.unwrap_or_else(|_| "0".to_string())
 			.parse()
@@ -560,7 +556,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				.as_ref()
 				.unwrap(),
 			micro_vm > 0,
-			kvm > 0,
+			std::fs::metadata("/dev/kvm").is_ok(),
 			&tap_fd,
 		)
 	} else {
