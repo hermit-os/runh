@@ -51,7 +51,7 @@ jobs:
         runtime-endpoint: "unix:///var/run/crio/crio.sock"
         image-endpoint: "unix:///var/run/crio/crio.sock"
         timeout: 2
-        debug: true
+        debug: false
         END
     - name: Install crictl
       shell: sudo bash --noprofile --norc -eo pipefail {0}
