@@ -125,10 +125,11 @@ jobs:
       run: |
          crictl runp --runtime=runh /home/runner/pod.json > pod.id
          export PODID=$(cat pod.id)        
+         crictl inspectp $PODID
          crictl create $PODID /home/runner/container.json /home/runner/pod.json > container.id
          export CONTAINERID=$(cat container.id)
-         echo "CONTAINERID: $CONTAINERID"
          crictl start $CONTAINERID
+         crictl ps -a
          sleep 5
          crictl logs $CONTAINERID
          crictl stop $CONTAINERID
