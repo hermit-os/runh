@@ -621,7 +621,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				"virtiofsd",
 				"--socket-path=/run/vhostqemu",
 				"--shared-dir",
-				"/mnt",
+				"/root",
 				"--announce-submounts",
 				"--sandbox",
 				"none",

@@ -112,7 +112,7 @@ pub fn get_qemu_args(
 				"-chardev",
 				"socket,id=char0,path=/run/vhostqemu",
 				"-device",
-				"vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=mnt",
+				"vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=root",
 				"-object",
 				"memory-backend-file,id=mem,size=1G,mem-path=/dev/shm,share=on",
 				"-numa",
