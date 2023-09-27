@@ -617,7 +617,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 
 		if micro_vm == 0 {
 			info!("Initialize virtiofsd");
-			let virtiofsd_args: Vec<String> = vec![
+			let virtiofsd_args: Vec<String> = [
 				"virtiofsd",
 				"--socket-path=/run/vhostqemu",
 				"--shared-dir",
