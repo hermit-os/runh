@@ -609,6 +609,49 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	nix::unistd::close(fifo_fd).expect("Could not close exec fifo O_PATH fd!");
 	nix::unistd::close(init_pipe.into_raw_fd()).expect("Could not close init pipe fd!");
 
+	if args.config.is_hermit_container {
+		let micro_vm: u32 = env::var("RUNH_MICRO_VM")
+			.unwrap_or_else(|_| "0".to_string())
+			.parse()
+			.expect("RUNH_MICRO_VM was not an unsigned integer!");
+
+		if micro_vm == 0 {
+			info!("Initialize virtiofsd");
+			let virtiofsd_args: Vec<String> = vec![
+				"virtiofsd",
+				"--socket-path=/run/vhostqemu",
+				"--shared-dir",
+				"/mnt",
+				"--announce-submounts",
+				"--sandbox",
+				"none",
+				"--seccomp",
+				"none",
+				"--inode-file-handles=never",
+			]
+			.iter()
+			.map(|s| s.to_string())
+			.collect();
+
+			let virtiofsd_path_rel = PathBuf::from(
+				virtiofsd_args
+					.get(0)
+					.expect("Container spec does not contain any args!"),
+			);
+			let virtiofsd_path_abs = paths::find_in_path(virtiofsd_path_rel, None)
+				.expect("Could not determine location of args-executable!");
+
+			let mut cmd = std::process::Command::new(virtiofsd_path_abs);
+			cmd.arg0(virtiofsd_args.get(0).unwrap());
+			if virtiofsd_args.len() > 1 {
+				cmd.args(virtiofsd_args.get(1..).unwrap());
+			}
+			cmd.envs(std::env::vars());
+
+			let _child = cmd.spawn().expect("Unable to virtiofsd");
+		}
+	}
+
 	let mut cmd = std::process::Command::new(exec_path_abs);
 	cmd.arg0(exec_args.get(0).unwrap());
 	if exec_args.len() > 1 {
