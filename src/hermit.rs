@@ -106,6 +106,22 @@ pub fn get_qemu_args(
 			.map(|s| s.to_string())
 			.collect(),
 		);
+	} else {
+		exec_args.append(
+			&mut [
+				"-chardev",
+				"socket,id=char0,path=/run/vhostqemu",
+				"-device",
+				"vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=mnt",
+				"-object",
+				"memory-backend-file,id=mem,size=1G,mem-path=/dev/shm,share=on",
+				"-numa",
+				"node,memdev=mem",
+			]
+			.iter()
+			.map(|s| s.to_string())
+			.collect(),
+		);
 	}
 
 	let mut args_string = match netconf {
