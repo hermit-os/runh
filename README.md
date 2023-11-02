@@ -27,7 +27,7 @@ $ ls ./runh-image/rootfs
 drwxr-xr-x 1 stefan stefan     128 May 24 12:27 .
 drwxr-xr-x 1 stefan stefan      96 May 24 12:27 ..
 -rwxr-xr-x 1 stefan stefan 3651080 May 20 13:53 rusty_demo
--rwxr-xr-x 1 stefan stefan 2225868 May 19 22:50 rusty-loader
+-rwxr-xr-x 1 stefan stefan 2225868 May 19 22:50 hermit-loader
 ```
 
 An OCI specification file is required to start the hypervisor within an isolated environment.
