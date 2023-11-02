@@ -525,7 +525,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.parent()
 			.expect("App path does not have a parent!")
 			.to_owned();
-		let kernel_path = app_root.join("rusty-loader");
+		let kernel_path = app_root.join("hermit-loader");
 		let kernel = kernel_path.as_os_str().to_str().unwrap();
 		let micro_vm: u32 = env::var("RUNH_MICRO_VM")
 			.unwrap_or_else(|_| "0".to_string())
