@@ -14,13 +14,12 @@ use std::borrow::Cow;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::os::fd::OwnedFd;
 use std::os::unix::fs;
 use std::os::unix::fs::OpenOptionsExt;
-use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::os::unix::prelude::CommandExt;
 use std::os::unix::prelude::FromRawFd;
-use std::os::unix::prelude::IntoRawFd;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -149,6 +148,7 @@ pub fn create_container(
 	//Setup log pipe
 	let (parent_log_fd, child_log_fd) =
 		nix::unistd::pipe2(OFlag::O_CLOEXEC).expect("Could not create socket pair for log pipe!");
+	let child_log_fd = unsafe { OwnedFd::from_raw_fd(child_log_fd) };
 	let log_forwarder = std::thread::spawn(move || {
 		let log_pipe = unsafe { std::fs::File::from_raw_fd(parent_log_fd) };
 		let mut reader = std::io::BufReader::new(log_pipe);
@@ -215,15 +215,15 @@ pub fn create_container(
 
 	let mut child_fd_mappings = vec![
 		FdMapping {
-			parent_fd: fifo.as_raw_fd(),
+			parent_fd: fifo.into(),
 			child_fd: 3,
 		},
 		FdMapping {
-			parent_fd: child_socket_fd.as_raw_fd(),
+			parent_fd: child_socket_fd,
 			child_fd: 4,
 		},
 		FdMapping {
-			parent_fd: spec_file.as_raw_fd(),
+			parent_fd: spec_file.into(),
 			child_fd: 5,
 		},
 		FdMapping {
@@ -233,23 +233,19 @@ pub fn create_container(
 	];
 
 	//Setup console socket
-	let socket_fds = if let Some(console_socket_path) = console_socket {
+	if let Some(console_socket_path) = console_socket {
 		let stream = UnixStream::connect(console_socket_path.clone()).unwrap_or_else(|_| {
 			panic!(
 				"Could not connect to socket named by console-socket path at {}",
 				console_socket_path.to_str().unwrap().to_owned()
 			)
 		});
-		let sock_stream_fd = stream.into_raw_fd();
 		//let socket_fd_copy =
 		//	nix::unistd::dup(sock_stream_fd).expect("Could not duplicate unix stream fd!");
 		child_fd_mappings.push(FdMapping {
-			parent_fd: sock_stream_fd,
+			parent_fd: stream.into(),
 			child_fd: 7,
 		});
-		Some(sock_stream_fd)
-	} else {
-		None
 	};
 
 	let _ = std::process::Command::new("/proc/self/exe")
@@ -269,13 +265,6 @@ pub fn create_container(
 		.env("RUNH_HERMIT_CONTAINER", is_hermit_container.to_string())
 		.spawn()
 		.expect("Unable to spawn runh init process");
-
-	debug!("Started init process. Closing child fds in create process.");
-	nix::unistd::close(child_socket_fd.as_raw_fd()).expect("Could not close child_socket_fd!");
-	nix::unistd::close(child_log_fd).expect("Could not close child_log_fd!");
-	if let Some(stream_fd) = socket_fds {
-		nix::unistd::close(stream_fd).expect("Could not close console stream_fd!");
-	}
 
 	debug!("Waiting for first message from child...");
 	let mut init_pipe = File::from(parent_socket_fd);
