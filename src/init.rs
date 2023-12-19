@@ -1,5 +1,6 @@
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
+use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::prelude::{IntoRawFd, OpenOptionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
@@ -538,7 +539,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				.write(true)
 				.open(format!("/dev/tap{}", netconf.macvtap_index))
 				.expect("Could not open tap device file!");
-			Some(tap_file.into_raw_fd())
+			Some(OwnedFd::from(tap_file))
 		} else {
 			None
 		};
@@ -557,7 +558,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				.unwrap(),
 			micro_vm > 0,
 			std::fs::metadata("/dev/kvm").is_ok(),
-			&tap_fd,
+			&tap_fd.as_ref().map(AsRawFd::as_raw_fd),
 		)
 	} else {
 		args.config

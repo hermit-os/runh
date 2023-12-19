@@ -16,7 +16,7 @@ description = "runh is a CLI tool for spawning and running RustyHermit container
 capctl = "0.2"
 clap = { version = "4", features = ["wrap_help", "derive", "color", "cargo", "suggestions"] }
 colour = "0.7"
-command-fds = "0.2"
+command-fds = "0.3"
 futures = "0.3"
 getset = "0.1"
 goblin = { version = "0.7", default-features = false, features = ["elf64", "elf32", "endian_fd"] }
