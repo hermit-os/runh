@@ -1,11 +1,17 @@
 use futures::TryStreamExt;
 use netlink_packet_core::ErrorMessage;
-use netlink_packet_route::{address, link, route, MACVLAN_MODE_PASSTHRU};
+use netlink_packet_route::address::AddressAttribute;
+use netlink_packet_route::link::LinkAttribute;
+use netlink_packet_route::route::{RouteAddress, RouteAttribute};
 use nix::sys::stat::SFlag;
 use rtnetlink::Error::NetlinkError;
+use std::net::IpAddr;
 use std::num::NonZeroI32;
 use std::path::PathBuf;
 use std::{error::Error, fmt, net::Ipv4Addr};
+
+// FIXME: https://github.com/rust-netlink/netlink-packet-route/issues/88
+const MACVLAN_MODE_PASSTHRU: u32 = 8;
 
 #[derive(Debug)]
 struct VirtioNetworkError {
@@ -117,9 +123,12 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 		.expect("Could not read address info for interface eth0!");
 
 	// Extract IP address from address info
-	for nla in device_addr_msg.nlas.iter() {
-		if let address::nlas::Nla::Address(addr) = nla {
-			ip_address = Some(Ipv4Addr::from([addr[0], addr[1], addr[2], addr[3]]));
+	for address_attribute in device_addr_msg.attributes.into_iter() {
+		if let AddressAttribute::Address(addr) = address_attribute {
+			match addr {
+				IpAddr::V4(addr) => ip_address = Some(addr),
+				IpAddr::V6(_) => panic!(),
+			}
 			prefix_length = Some(device_addr_msg.header.prefix_len);
 		}
 	}
@@ -127,9 +136,12 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 	// Get route info and extract gateway address
 	let mut route_get_req = handle.route().get(rtnetlink::IpVersion::V4).execute();
 	while let Some(route_msg) = route_get_req.try_next().await? {
-		for nla in route_msg.nlas.into_iter() {
-			if let route::Nla::Gateway(addr) = nla {
-				gateway_address = Some(Ipv4Addr::from([addr[0], addr[1], addr[2], addr[3]]));
+		for route_attribute in route_msg.attributes.into_iter() {
+			if let RouteAttribute::Gateway(addr) = route_attribute {
+				match addr {
+					RouteAddress::Inet(addr) => gateway_address = Some(addr),
+					_ => panic!(),
+				}
 				break;
 			}
 		}
@@ -158,8 +170,8 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 	let macvtap_index = macvtap_link_info.header.index;
 
 	// Extract mac from macvtap
-	for nla in macvtap_link_info.nlas.into_iter() {
-		if let link::nlas::Nla::Address(addr) = nla {
+	for link_attribute in macvtap_link_info.attributes.into_iter() {
+		if let LinkAttribute::Address(addr) = link_attribute {
 			if addr.len() != 6 {
 				return Err(Box::new(VirtioNetworkError::from(format!(
 					"Received invalid MAC address {addr:?} for macvtap device!"
