@@ -98,7 +98,7 @@ pub fn create_container(
 
 	let exec_path_rel = PathBuf::from(
 		exec_args
-			.get(0)
+			.first()
 			.expect("Container spec does not contain any args!"),
 	);
 	let exec_path_abs = rootfs::resolve_in_rootfs(&exec_path_rel, &bundle_rootfs_path_abs);

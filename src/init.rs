@@ -519,7 +519,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.args()
 			.as_ref()
 			.unwrap()
-			.get(0)
+			.first()
 			.expect("Container spec does not contain any args!")
 			.as_str();
 		let app_root = PathBuf::from(app)
@@ -574,7 +574,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 
 	let exec_path_rel = PathBuf::from(
 		exec_args
-			.get(0)
+			.first()
 			.expect("Container spec does not contain any args!"),
 	);
 	let exec_path_abs = paths::find_in_path(exec_path_rel, None)
@@ -636,14 +636,14 @@ fn init_stage_child(args: SetupArgs) -> ! {
 
 			let virtiofsd_path_rel = PathBuf::from(
 				virtiofsd_args
-					.get(0)
+					.first()
 					.expect("Container spec does not contain any args!"),
 			);
 			let virtiofsd_path_abs = paths::find_in_path(virtiofsd_path_rel, None)
 				.expect("Could not determine location of args-executable!");
 
 			let mut cmd = std::process::Command::new(virtiofsd_path_abs);
-			cmd.arg0(virtiofsd_args.get(0).unwrap());
+			cmd.arg0(virtiofsd_args.first().unwrap());
 			if virtiofsd_args.len() > 1 {
 				cmd.args(virtiofsd_args.get(1..).unwrap());
 			}
@@ -654,7 +654,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	}
 
 	let mut cmd = std::process::Command::new(exec_path_abs);
-	cmd.arg0(exec_args.get(0).unwrap());
+	cmd.arg0(exec_args.first().unwrap());
 	if exec_args.len() > 1 {
 		cmd.args(exec_args.get(1..).unwrap());
 	}
