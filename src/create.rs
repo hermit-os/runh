@@ -14,12 +14,10 @@ use std::borrow::Cow;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::os::fd::OwnedFd;
 use std::os::unix::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::net::UnixStream;
 use std::os::unix::prelude::CommandExt;
-use std::os::unix::prelude::FromRawFd;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -148,9 +146,8 @@ pub fn create_container(
 	//Setup log pipe
 	let (parent_log_fd, child_log_fd) =
 		nix::unistd::pipe2(OFlag::O_CLOEXEC).expect("Could not create socket pair for log pipe!");
-	let child_log_fd = unsafe { OwnedFd::from_raw_fd(child_log_fd) };
 	let log_forwarder = std::thread::spawn(move || {
-		let log_pipe = unsafe { std::fs::File::from_raw_fd(parent_log_fd) };
+		let log_pipe = File::from(parent_log_fd);
 		let mut reader = std::io::BufReader::new(log_pipe);
 		let mut buffer: Vec<u8> = vec![];
 		while let Ok(bytes_read) = reader.read_until(b"}"[0], &mut buffer) {
