@@ -68,6 +68,7 @@ pub fn create_container(
 		let mut file = OpenOptions::new()
 			.write(true)
 			.create(true)
+			.truncate(true)
 			.open(spec_path_backup)
 			.expect("Unable to write spec to backup file!");
 		file.write_all(serde_json::to_string(&container).unwrap().as_bytes())
@@ -345,6 +346,7 @@ pub fn create_container(
 		.read(true)
 		.write(true)
 		.create(true)
+		.truncate(true)
 		.open(state_location)
 		.expect("Could not create state-file in container dir!");
 	write!(state_file, "{pid}").expect("Could not write pid to state-file!");

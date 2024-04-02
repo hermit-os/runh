@@ -227,6 +227,7 @@ fn mount_device(rootfs: &Path, destination_rel: &Path, major: u64, minor: u64) {
 		let _ = OpenOptions::new()
 			.mode(0o755)
 			.create(true)
+			.truncate(true)
 			.write(true)
 			.open(&destination)
 			.unwrap_or_else(|_| {

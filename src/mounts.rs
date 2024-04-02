@@ -34,6 +34,7 @@ pub fn mount_console(slave_path: &Path) {
 	let _ = OpenOptions::new()
 		.mode(0o666)
 		.create(true)
+		.truncate(true)
 		.write(true)
 		.read(true)
 		.open("/dev/console")
@@ -119,6 +120,7 @@ pub fn configure_mounts(
 							let _ = OpenOptions::new()
 								.mode(0o755)
 								.create(true)
+								.truncate(true)
 								.write(true)
 								.open(&destination_resolved)
 								.unwrap_or_else(|_| {
