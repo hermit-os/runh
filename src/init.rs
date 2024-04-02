@@ -477,6 +477,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			let mut sysctl_file = OpenOptions::new()
 				.mode(0o644)
 				.create(true)
+				.truncate(true)
 				.write(true)
 				.open(&full_path)
 				.unwrap_or_else(|_| panic!("Could not create sysctl entry at {:?}", full_path));

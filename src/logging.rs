@@ -169,6 +169,7 @@ pub fn init(
 			Some(
 				OpenOptions::new()
 					.create(true)
+					.truncate(true)
 					.write(true)
 					.open(project_dir.join(format!(
 						"log-{}.json",
