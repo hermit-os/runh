@@ -96,7 +96,7 @@ pub fn get_qemu_args(
 		exec_args.append(
 			&mut [
 				"-M",
-				"microvm,x-option-roms=off,pit=off,pic=off,rtc=on,auto-kernel-cmdline=off",
+				"microvm,x-option-roms=off,pit=off,pic=off,rtc=on,auto-kernel-cmdline=off,acpi=off",
 				"-global",
 				"virtio-mmio.force-legacy=off",
 				"-nodefaults",
