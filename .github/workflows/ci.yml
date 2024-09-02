@@ -27,7 +27,7 @@ jobs:
 
   test:
     name: Setup, build and test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       KUBERNETES_VERSION: v1.30
       CRIO_VERSION: v1.30
