@@ -27,32 +27,29 @@ jobs:
 
   test:
     name: Setup, build and test
-    runs-on: ubuntu-20.04
-
+    runs-on: ubuntu-latest
+    env:
+      KUBERNETES_VERSION: v1.30
+      CRIO_VERSION: v1.30
     steps:
     - name: Install CRI-O
-      shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        export DEBIAN_FRONTEND=noninteractive
-        apt update --fix-missing
-        apt-get install -y curl gnupg tree conntrack
-        export OS=xUbuntu_20.04
-        export VERSION=1.25
-        echo "deb [signed-by=/usr/share/keyrings/libcontainers-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
-        echo "deb [signed-by=/usr/share/keyrings/libcontainers-crio-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:$VERSION.list
-        mkdir -p /usr/share/keyrings
-        curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/Release.key | gpg --dearmor -o /usr/share/keyrings/libcontainers-archive-keyring.gpg
-        curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$VERSION/$OS/Release.key | gpg --dearmor -o /usr/share/keyrings/libcontainers-crio-archive-keyring.gpg
-        apt update --fix-missing
-        apt-get install -f -y cri-o cri-o-runc
-        crio config --default 1> /etc/crio/crio.conf
-        systemctl start crio.service
-        cat << END > /etc/crictl.yaml
-        runtime-endpoint: "unix:///var/run/crio/crio.sock"
-        image-endpoint: "unix:///var/run/crio/crio.sock"
-        timeout: 2
-        debug: false
-        END
+        # Already present on GitHub runners
+        # curl -fsSL https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/Release.key |
+        #     sudo gpg --batch --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/ /" |
+            sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+        curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$CRIO_VERSION/deb/Release.key |
+            sudo gpg --batch --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/$CRIO_VERSION/deb/ /" |
+            sudo tee /etc/apt/sources.list.d/cri-o.list
+
+        sudo apt-get remove conmon
+        sudo apt-get update
+        sudo apt-get install -y cri-o docker
+
+        sudo systemctl start crio.service
     - name: Install crictl
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: apt-get install cri-tools
@@ -105,9 +102,15 @@ jobs:
       id: runh-crio-setup
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/\[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.runh\]\nruntime_path = ""\nruntime_type = "oci"\nruntime_root = "\/run\/runh"\nprivileged_without_host_devices = false\n\n\[crio.runtime.runtimes.runc\]/g' /etc/crio/crio.conf
+        sudo tee /etc/crio/crio.conf.d/00-runh.conf << EOF
+        [crio.runtime.runtimes.runh]
+        runtime_path = ""
+        runtime_type = "oci"
+        runtime_root = "/run/runh"
+        monitor_path = "/usr/libexec/crio/conmon"
+        privileged_without_host_devices = false
+        EOF
         systemctl restart crio || systemctl status crio
-        >&2 cat /etc/crio/crio.conf
     - name: Test runh standalone
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
