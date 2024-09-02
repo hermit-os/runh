@@ -49,8 +49,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cri-o docker
 
-        crio config --default | sudo tee /etc/crio/crio.conf
-
         sudo systemctl start crio.service
     - name: Install crictl
       shell: sudo bash --noprofile --norc -eo pipefail {0}
@@ -104,9 +102,15 @@ jobs:
       id: runh-crio-setup
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       run: |
-        sed -i 's/\[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.runh\]\nruntime_path = ""\nruntime_type = "oci"\nruntime_root = "\/run\/runh"\nmonitor_path = "\/usr\/libexec\/crio\/conmon"\nprivileged_without_host_devices = false\n\n\[crio.runtime.runtimes.runc\]/g' /etc/crio/crio.conf
+        sudo tee /etc/crio/crio.conf.d/00-runh.conf << EOF
+        [crio.runtime.runtimes.runh]
+        runtime_path = ""
+        runtime_type = "oci"
+        runtime_root = "/run/runh"
+        monitor_path = "/usr/libexec/crio/conmon"
+        privileged_without_host_devices = false
+        EOF
         systemctl restart crio || systemctl status crio
-        >&2 cat /etc/crio/crio.conf
     - name: Test runh standalone
       shell: sudo bash --noprofile --norc -eo pipefail {0}
       if: ${{ always() && steps.runh-crio-setup.outcome == 'success' }}
