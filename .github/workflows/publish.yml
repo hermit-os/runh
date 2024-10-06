@@ -26,9 +26,15 @@ jobs:
     - name: Create dockerfile for Ubuntu
       run: |
         cat << END > Dockerfile
+        FROM rust:bookworm as builder
+        RUN apt update
+        RUN apt install -y --no-install-recommends libcap-ng-dev libseccomp-dev
+        RUN cargo install --git https://gitlab.com/virtio-fs/virtiofsd.git
         FROM ubuntu:latest
         RUN apt update
-        RUN apt install -y --no-install-recommends libcap-ng0 libseccomp2 qemu-system-x86 net-tools rust-virtiofsd
+        RUN apt install -y --no-install-recommends libcap-ng0 libseccomp2 qemu-system-x86 net-tools
+        COPY --from=builder /usr/local/cargo/bin/virtiofsd /usr/bin/virtiofsd
+        RUN chmod 0755 /usr/bin/virtiofsd
         END
     - name: Build and push container
       uses: docker/build-push-action@v6
