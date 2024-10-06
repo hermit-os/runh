@@ -26,7 +26,7 @@ jobs:
     - name: Create dockerfile for Ubuntu
       run: |
         cat << END > Dockerfile
-        FROM ubuntu:24.04
+        FROM ubuntu:latest
         RUN apt update
         RUN apt install -y --no-install-recommends libcap-ng0 libseccomp2 qemu-system-x86 net-tools rust-virtiofsd
         END
