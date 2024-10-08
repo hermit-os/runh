@@ -29,7 +29,6 @@ pub fn create_container(
 	bundle: PathBuf,
 	pidfile: Option<PathBuf>,
 	console_socket: Option<PathBuf>,
-	hermit_env: Option<PathBuf>,
 	debug_config: bool,
 	child_log_level: LogLevel,
 ) {
@@ -108,8 +107,6 @@ pub fn create_container(
 	};
 	if is_hermit_container {
 		info!("Detected RustyHermit executable. Creating container in hermit mode!");
-		//Setup hermit environment
-		hermit::prepare_environment(&project_dir, &hermit_env);
 	}
 
 	//Setup exec fifo
