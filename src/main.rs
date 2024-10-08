@@ -91,7 +91,6 @@ fn parse_matches(cli: &Cli) {
 			bundle.clone(),
 			pid_file.clone(),
 			console_socket.clone(),
-			cli.hermit_env.clone(),
 			cli.debug_config,
 			cli.log_level,
 		),
@@ -212,10 +211,6 @@ struct Cli {
 	/// set the log format
 	#[arg(long, default_value_t, value_enum)]
 	log_format: LogFormat,
-
-	/// Path to the hermit-environment. Defaults to <runh-root-dir>/hermit
-	#[arg(long, value_name = "HERMIT_ENV_PATH")]
-	hermit_env: Option<PathBuf>,
 
 	/// Write out any logs to the runh root directory in addition to the specified log path.
 	#[arg(long, default_value_t)]
