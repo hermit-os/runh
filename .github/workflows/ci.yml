@@ -60,14 +60,8 @@ jobs:
         sudo crictl version
     - name: Pull images
       run: |
-        docker pull ghcr.io/hermit-os/hermit_env:latest
         docker pull ghcr.io/hermit-os/rusty_demo:latest
         sudo crictl pull ghcr.io/hermit-os/rusty_demo:latest
-    - name: Setup Hermit environment
-      run: |
-        docker export $(docker create ghcr.io/hermit-os/hermit_env:latest) > hermit-env.tar
-        sudo mkdir -p /run/runh/hermit
-        sudo tar -xf hermit-env.tar -C /run/runh/hermit
     - name: Setup rootfs
       run: |
         docker export $(docker create ghcr.io/hermit-os/rusty_demo:latest) > runh-image.tar

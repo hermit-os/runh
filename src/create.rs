@@ -170,36 +170,7 @@ pub fn create_container(
 	});
 
 	//Setup file system
-	let rootfs_path_abs = if is_hermit_container {
-		let overlay_root = container_dir.join("rootfs");
-		let overlay_workdir = overlay_root.join("work");
-		let overlay_upperdir = overlay_root.join("diff");
-		let overlay_mergeddir = overlay_root.join("merged");
-		mounts::create_all_dirs(&overlay_workdir);
-		mounts::create_all_dirs(&overlay_upperdir);
-		mounts::create_all_dirs(&overlay_mergeddir);
-		let datastr = format!(
-			"lowerdir={}:{},upperdir={},workdir={}",
-			hermit::get_environment_path(&project_dir, &hermit_env)
-				.as_os_str()
-				.to_str()
-				.unwrap(),
-			bundle_rootfs_path_abs.as_os_str().to_str().unwrap(),
-			overlay_upperdir.as_os_str().to_str().unwrap(),
-			overlay_workdir.as_os_str().to_str().unwrap()
-		);
-		nix::mount::mount::<str, PathBuf, str, str>(
-			Some("overlay"),
-			&overlay_mergeddir,
-			Some("overlay"),
-			nix::mount::MsFlags::empty(),
-			Some(datastr.as_str()),
-		)
-		.unwrap_or_else(|err| panic!("Could not create overlay-fs at {:?}: {}", overlay_root, err));
-		Cow::from(overlay_mergeddir.canonicalize().unwrap())
-	} else {
-		Cow::from(&bundle_rootfs_path_abs)
-	};
+	let rootfs_path_abs = Cow::from(&bundle_rootfs_path_abs);
 
 	//Pass spec file
 	let mut config = bundle;
