@@ -1,6 +1,5 @@
 use crate::hermit;
 use crate::logging::LogLevel;
-use crate::mounts;
 use crate::rootfs;
 use crate::state;
 use command_fds::{CommandFdExt, FdMapping};
