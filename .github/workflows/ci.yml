@@ -29,15 +29,14 @@ jobs:
     name: Setup, build and test
     runs-on: ubuntu-latest
     env:
-      KUBERNETES_VERSION: v1.30
-      CRIO_VERSION: v1.30
+      KUBERNETES_VERSION: v1.31
+      CRIO_VERSION: v1.31
     steps:
     - name: Install CRI-O
       run: |
-        # Already present on GitHub runners
-        # curl -fsSL https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/Release.key |
-        #     sudo gpg --batch --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/ /" |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/Release.key |
+            sudo gpg --batch --dearmor -o /etc/apt/keyrings/my-kubernetes-apt-keyring.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/my-kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/ /" |
             sudo tee /etc/apt/sources.list.d/kubernetes.list
 
         curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$CRIO_VERSION/deb/Release.key |
