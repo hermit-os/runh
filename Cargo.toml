@@ -23,7 +23,7 @@ goblin = { version = "0.9", default-features = false, features = ["elf64", "elf3
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
 netlink-packet-core = "0.7"
-netlink-packet-route = "0.19"
+netlink-packet-route = "0.21"
 nix = { version = "0.29", features = [
     "hostname",
     "ioctl",
