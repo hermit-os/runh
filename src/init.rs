@@ -225,7 +225,7 @@ fn init_stage_parent(args: SetupArgs) -> isize {
 	0 // Exit child process
 }
 
-fn init_stage_child(args: SetupArgs) -> ! {
+fn init_stage_child(args: SetupArgs) -> isize {
 	let linux_spec = args.config.spec.linux().as_ref().unwrap();
 	debug!("Enter init_stage child");
 	let _ = prctl::set_name("runh:INIT");
@@ -611,6 +611,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	nix::unistd::close(fifo_fd).expect("Could not close exec fifo O_PATH fd!");
 	nix::unistd::close(init_pipe.into_raw_fd()).expect("Could not close init pipe fd!");
 
+	let mut child = None;
 	if args.config.is_hermit_container {
 		let micro_vm: u32 = env::var("RUNH_MICRO_VM")
 			.unwrap_or_else(|_| "0".to_string())
@@ -650,7 +651,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			}
 			cmd.envs(std::env::vars());
 
-			let _child = cmd.spawn().expect("Unable to virtiofsd");
+			child = Some(cmd.spawn().expect("Unable to virtiofsd"));
 		}
 	}
 
@@ -664,8 +665,12 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	if let Some(tap_fd) = tap_fd {
 		cmd.preserved_fds(vec![tap_fd]);
 	}
-	let error = cmd.exec();
+	let status = cmd.status().unwrap();
+	assert!(status.success());
 
-	//This point should not be reached on successful exec
-	panic!("exec failed with error {}", error)
+	if let Some(mut child) = child {
+		child.wait().unwrap();
+	}
+
+	0
 }
