@@ -611,6 +611,7 @@ fn init_stage_child(args: SetupArgs) -> isize {
 	nix::unistd::close(fifo_fd).expect("Could not close exec fifo O_PATH fd!");
 	nix::unistd::close(init_pipe.into_raw_fd()).expect("Could not close init pipe fd!");
 
+	let mut child = None;
 	if args.config.is_hermit_container {
 		let micro_vm: u32 = env::var("RUNH_MICRO_VM")
 			.unwrap_or_else(|_| "0".to_string())
@@ -650,7 +651,7 @@ fn init_stage_child(args: SetupArgs) -> isize {
 			}
 			cmd.envs(std::env::vars());
 
-			let _child = cmd.spawn().expect("Unable to virtiofsd");
+			child = Some(cmd.spawn().expect("Unable to virtiofsd"));
 		}
 	}
 
@@ -666,6 +667,10 @@ fn init_stage_child(args: SetupArgs) -> isize {
 	}
 	let status = cmd.status().unwrap();
 	assert!(status.success());
+
+	if let Some(mut child) = child {
+		child.wait().unwrap();
+	}
 
 	0
 }
