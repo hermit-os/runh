@@ -225,7 +225,7 @@ fn init_stage_parent(args: SetupArgs) -> isize {
 	0 // Exit child process
 }
 
-fn init_stage_child(args: SetupArgs) -> ! {
+fn init_stage_child(args: SetupArgs) -> isize {
 	let linux_spec = args.config.spec.linux().as_ref().unwrap();
 	debug!("Enter init_stage child");
 	let _ = prctl::set_name("runh:INIT");
@@ -664,8 +664,8 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	if let Some(tap_fd) = tap_fd {
 		cmd.preserved_fds(vec![tap_fd]);
 	}
-	let error = cmd.exec();
+	let status = cmd.status().unwrap();
+	assert!(status.success());
 
-	//This point should not be reached on successful exec
-	panic!("exec failed with error {}", error)
+	0
 }
