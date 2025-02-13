@@ -14,6 +14,7 @@ pub fn is_hermit_app(path: &Path) -> bool {
 	}
 }
 
+#[derive(Debug)]
 pub enum NetworkConfig {
 	TapNetwork(network::VirtioNetworkConfig),
 	UserNetwork(u16),

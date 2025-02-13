@@ -213,6 +213,7 @@ pub fn create_container(
 		});
 	};
 
+	#[allow(clippy::zombie_processes)]
 	let _ = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
 		.arg(child_log_level.as_str())
