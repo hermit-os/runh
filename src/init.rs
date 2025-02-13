@@ -396,10 +396,14 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	}
 
 	let user_port: u16 = env::var("RUNH_USER_PORT")
-		.unwrap_or_else(|_| "0".to_string())
+		.unwrap_or_else(|_| "9975".to_string())
 		.parse()
 		.expect("RUNH_USER_PORT was not an unsigned integer!");
 
+	debug!(
+		"Hermit container: {},  Container port: {}",
+		args.config.is_hermit_container, user_port
+	);
 	let hermit_network_config = if args.config.is_hermit_container && user_port == 0 {
 		match tokio_runtime.block_on(network::create_tap()) {
 			Ok(config) => NetworkConfig::TapNetwork(config),
@@ -545,6 +549,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			None
 		};
 
+		debug!("Network configuration {:?}", hermit_network_config);
 		hermit::get_qemu_args(
 			kernel,
 			app,
