@@ -27,7 +27,7 @@ jobs:
 
   test:
     name: Setup, build and test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       KUBERNETES_VERSION: v1.31
       CRIO_VERSION: v1.31
