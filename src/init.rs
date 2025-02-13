@@ -655,6 +655,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			}
 			cmd.envs(std::env::vars());
 
+			#[allow(clippy::zombie_processes)]
 			let _child = cmd.spawn().expect("Unable to virtiofsd");
 		}
 	}
