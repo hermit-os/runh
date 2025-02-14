@@ -670,8 +670,7 @@ fn init_stage_child(args: SetupArgs) -> isize {
 	if let Some(tap_fd) = tap_fd {
 		cmd.preserved_fds(vec![tap_fd]);
 	}
-	let status = cmd.status().unwrap();
-	assert!(status.success());
+	let _status = cmd.status().unwrap();
 
 	if let Some(mut child) = child {
 		child.wait().unwrap();
