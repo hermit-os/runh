@@ -27,7 +27,7 @@ pub fn get_qemu_args(
 	netconf: &NetworkConfig,
 	app_args: &[String],
 	micro_vm: bool,
-	kvm: bool,
+	kvm_support: bool,
 	tap_fd: &Option<i32>,
 ) -> Vec<String> {
 	let mut exec_args: Vec<String> = vec![
@@ -51,14 +51,27 @@ pub fn get_qemu_args(
 	.map(|s| s.to_string())
 	.collect();
 
-	if kvm {
-		exec_args.append(
-			&mut ["--enable-kvm", "-cpu", "host"]
+	if let Some(kvm) = crate::CONFIG.kvm {
+		if kvm && kvm_support {
+			exec_args.append(
+				&mut ["--enable-kvm", "-cpu", "host"]
+					.iter()
+					.map(|s| s.to_string())
+					.collect(),
+			);
+		} else {
+			exec_args.append(
+				&mut [
+					"-cpu",
+					"qemu64,apic,fsgsbase,rdtscp,xsave,xsaveopt,fxsr,rdrand",
+				]
 				.iter()
 				.map(|s| s.to_string())
 				.collect(),
-		);
+			);
+		}
 	} else {
+		// disable kvm support, if the configuration file doesn't enable it
 		exec_args.append(
 			&mut [
 				"-cpu",
