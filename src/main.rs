@@ -37,10 +37,10 @@ use crate::start::*;
 use crate::state::*;
 use clap::{crate_version, Parser, Subcommand};
 use serde::Deserialize;
-use std::fs::DirBuilder;
+use std::fs::{read_to_string, DirBuilder};
 use std::os::unix::fs::DirBuilderExt;
 use std::sync::LazyLock;
-use std::{env, path::PathBuf};
+use std::{env, path::Path, path::PathBuf};
 
 /// This is what we're going to decode into. Each field is optional, meaning
 /// that it doesn't have to be present in TOML.
@@ -56,17 +56,19 @@ impl Config {
 }
 
 static CONFIG: LazyLock<Config> =
-	LazyLock::new(|| match std::fs::read_to_string("/etc/runh/config.toml") {
-		Ok(content) => {
-			let decoded: Result<Config, toml::de::Error> = toml::from_str(&content);
-			if let Ok(config) = decoded {
-				config
-			} else {
-				Config::new()
+	LazyLock::new(
+		|| match read_to_string(Path::new("/etc/runh/config.toml")) {
+			Ok(content) => {
+				let decoded: Result<Config, toml::de::Error> = toml::from_str(&content);
+				if let Ok(config) = decoded {
+					config
+				} else {
+					Config::new()
+				}
 			}
-		}
-		Err(_) => Config::new(),
-	});
+			Err(_) => Config::new(),
+		},
+	);
 
 fn parse_matches(cli: &Cli) {
 	let project_dir = &cli.root;
