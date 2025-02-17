@@ -22,4 +22,4 @@ $ docker buildx build --tag ghcr.io/hermit-os/httpd:latest --push .
 
 ## Funding
 
-The development of this project was partially funded by the European Union’s Horizon 2020 research and innovation programme under grant agreement No 957246 - IoT-NGIN.
+The development of this project was partially funded by the European Union’s Horizon 2020 research and innovation programme under grant agreement No 957246 - _IoT-NGIN_ and the European Union's Horizon Europe research and innovation programme under grant agreement No. 101070118 - _NEMO_.
