@@ -66,12 +66,12 @@
     RUN apt update
     RUN apt install -y --no-install-recommends qemu-system-x86 qemu-system-x86-microvm
     ```
-  - For running images that do not contain the RustyHermit-Bootloader, the Hermit environment needs to contain the bootloader binary named `hermit-loader` in the same folder that the application binary will be mounted into. If the image contains the app at `/hermit/app`, the bootloader has to be in `<hermit-env>/hermit/hermit-loader`.  
+  - For running images that do not contain the HermitOS-Bootloader, the Hermit environment needs to contain the bootloader binary named `hermit-loader` in the same folder that the application binary will be mounted into. If the image contains the app at `/hermit/app`, the bootloader has to be in `<hermit-env>/hermit/hermit-loader`.  
   Code: https://github.com/JTS22/runh/blob/5ea768750af4d0e53f4357ece26dd39e9866f3a0/src/init.rs#L651-L670
 
 # Issues
 - Networking
-  - works rather inconsistent (might be because of RustyHermit network code)
+  - works rather inconsistent (might be because of HermitOS network code)
   - network namespace is not reset when restarting a Kubernetes Pod -> usage of dummy device in network.rs
   - when a Hermit-Container runs in a pod, other containers in this pod likely can't access the network
     - running two Hermit-Containers in one pod should not be possible

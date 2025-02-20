@@ -10,7 +10,7 @@ keywords = ["oci", "container", "unikernel"]
 categories = ["operating system", "container", "virtualization"]
 readme = "README.md"
 edition = "2018"
-description = "runh is a CLI tool for spawning and running RustyHermit containers."
+description = "runh is a CLI tool for spawning and running Hermit OS containers."
 
 [dependencies]
 capctl = "0.2"

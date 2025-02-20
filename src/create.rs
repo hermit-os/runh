@@ -106,7 +106,7 @@ pub fn create_container(
 		false
 	};
 	if is_hermit_container {
-		info!("Detected RustyHermit executable. Creating container in hermit mode!");
+		info!("Detected Hermit OS executable. Creating container in hermit mode!");
 	}
 
 	//Setup exec fifo
