@@ -30,7 +30,22 @@
       runtime_root = "/run/runh" # Will be used as --root argument to runh
     ```
   - Set up containerd:
-    - TODO: Refer to https://github.com/containerd/containerd/blob/main/docs/cri/config.md
+    - Install containerd shim v2 for runh (https://github.com/hermit-os/containerd-runh-shim)
+    - edit /etc/containerd/config.toml
+      Extend the `runtimes` table:
+      ```
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runh]
+         base_runtime_spec = ""
+         container_annotations = []
+         privileged_without_host_devices = true
+         runtime_path = ""
+         runtime_root = ""
+         runtime_type = "io.containerd.runh.v2"
+         pod_annotations = ["io.hermitcontainers.*"]
+
+         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runh.options]
+
+      ```
   
   - Kubernetes `RuntimeClass` (requires either CRI-O or containerd setup):  
     ```
