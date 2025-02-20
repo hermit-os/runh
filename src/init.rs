@@ -670,6 +670,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	if let Some(tap_fd) = tap_fd {
 		cmd.preserved_fds(vec![tap_fd]);
 	}
+	// use implicitly execvp => on success, this function doesn't return
 	let error = cmd.exec();
 
 	//This point should not be reached on successful exec

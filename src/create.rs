@@ -214,7 +214,7 @@ pub fn create_container(
 	};
 
 	#[allow(clippy::zombie_processes)]
-	let _ = std::process::Command::new("/proc/self/exe")
+	let _child = std::process::Command::new("/proc/self/exe")
 		.arg("-l")
 		.arg(child_log_level.as_str())
 		.arg("--log-format")
@@ -261,7 +261,7 @@ pub fn create_container(
 		.write_all(rootfs_path_str.as_bytes())
 		.expect("Could not write rootfs-path to init pipe!");
 
-	//send bundle rootfs path to child
+	// send bundle rootfs path to child
 	if is_hermit_container {
 		let bundle_rootfs_path_str = bundle_rootfs_path_abs
 			.as_os_str()
