@@ -98,7 +98,7 @@ impl<W: Write + Send + 'static> log::Log for RunhLogger<W> {
 			};
 			if let Some(file) = &mut *file_lock {
 				if let Err(err) = writeln!(file, "{message}") {
-					println!("ERROR in logger: {err} Writing to stdout instead!");
+					println!("Warning in logger: {err} Writing to stdout instead!");
 					self.print_level(record.level());
 					println!(" {}", record.args());
 				}
