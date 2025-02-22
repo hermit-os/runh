@@ -4,14 +4,25 @@ use std::{convert::TryFrom, path::PathBuf, str::FromStr};
 use crate::state;
 
 pub fn kill_container(project_dir: PathBuf, id: &str, sig: &str, all: bool) {
-	let container_state = state::get_container_state(project_dir, id)
-		.unwrap_or_else(|| panic!("Could not query state for container {}", id));
-	if container_state.status != "created" && container_state.status != "running" {
-		panic!("Cannot send signals to non-running containers!")
-	}
+	let container_state = if let Some(state) = state::get_container_state(project_dir, id) {
+		state
+	} else {
+		warn!("Could not query state for container {}", id);
+		return;
+	};
 
-	if all {
-		unimplemented!("Sending signals to all container processes is currently unimplemented!");
+	if container_state.status == "stopped" {
+		// container is already stopped => nothing to do
+		return;
+	} else if all {
+		warn!("Sending signals to all container processes is currently unimplemented!");
+		return;
+	} else if container_state.status != "created" && container_state.status != "running" {
+		warn!(
+			"Cannot send signals to container with state \"{}\"!",
+			container_state.status
+		);
+		return;
 	}
 
 	let pid = container_state.pid.unwrap();
@@ -29,7 +40,7 @@ pub fn kill_container(project_dir: PathBuf, id: &str, sig: &str, all: bool) {
 	};
 
 	nix::sys::signal::kill(Pid::from_raw(pid), signal).unwrap_or_else(|_| {
-		panic!(
+		warn!(
 			"Could not send signal {} to container process ID  {}!",
 			sig, pid
 		)
