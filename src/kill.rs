@@ -11,13 +11,13 @@ pub fn kill_container(project_dir: PathBuf, id: &str, sig: &str, all: bool) {
 		return;
 	};
 
-    if container_state.status == "stopped" {
-        // container is already stopped => nothing to do
-        return;
-    } else if all {
-        warn!("Sending signals to all container processes is currently unimplemented!");
-        return;
-    } else if container_state.status != "created" && container_state.status != "running" {
+	if container_state.status == "stopped" {
+		// container is already stopped => nothing to do
+		return;
+	} else if all {
+		warn!("Sending signals to all container processes is currently unimplemented!");
+		return;
+	} else if container_state.status != "created" && container_state.status != "running" {
 		warn!(
 			"Cannot send signals to container with state \"{}\"!",
 			container_state.status
