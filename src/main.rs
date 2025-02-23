@@ -46,12 +46,21 @@ use std::{env, path::Path, path::PathBuf};
 /// that it doesn't have to be present in TOML.
 #[derive(Debug, Deserialize)]
 struct Config {
+	/// specifies if KVM support should be enabled
 	kvm: Option<bool>,
+	/// defines the number of cores, which the VM should use
+	smp: Option<u32>,
+	/// define the memory size (in MiB), which the VM should use
+	memory_size: Option<u64>,
 }
 
 impl Config {
 	pub const fn new() -> Self {
-		Self { kvm: None }
+		Self {
+			kvm: None,
+			smp: None,
+			memory_size: None,
+		}
 	}
 }
 

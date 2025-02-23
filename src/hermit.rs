@@ -30,14 +30,21 @@ pub fn get_qemu_args(
 	kvm_support: bool,
 	tap_fd: &Option<i32>,
 ) -> Vec<String> {
+	let smp: u32 = crate::CONFIG.smp.unwrap_or(1);
+	let memory_size: String = if let Some(memory_size) = crate::CONFIG.memory_size {
+		format!("{}M", memory_size)
+	} else {
+		"1G".to_string()
+	};
+
 	let mut exec_args: Vec<String> = vec![
 		"qemu-system-x86_64",
 		"-display",
 		"none",
 		"-smp",
-		"1",
+		&smp.to_string(),
 		"-m",
-		"1G",
+		&memory_size,
 		"-serial",
 		"stdio",
 		"-device",
