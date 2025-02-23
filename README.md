@@ -14,9 +14,10 @@ CMD ["/hermit/httpd"]
 ```
 The base image `hermit_env` includes an hypervisor, which is able to boot _Hermit OS_ applications.
 The image based on _Ubuntu_.
-To reduce the image size, the base image _hermit_env_alpine_ can be used.
+To reduce the image size, the base image `hermit_env_alpine` can be used.
 This image based on [Alpine Linux](https://www.alpinelinux.org), which is a security-oriented, lightweight Linux distribution.
-Afterwards, the container image can be created and pushed to the registry.
+
+Afterwards the creation of the `Dockerfile`, the container image can be created and pushed to the registry.
 The registery tag has to replace with the enduser registry.
 
 ```sh
