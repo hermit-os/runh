@@ -223,10 +223,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 
 	info!(
 		"Found / created network setup: IP={},MASK={},GW={},MAC={}",
-		ip_address.to_string(),
-		prefix_length,
-		gateway_address.to_string(),
-		&mac_address
+		ip_address, prefix_length, gateway_address, &mac_address
 	);
 
 	let mask: Ipv4Addr = Ipv4Addr::from(0xffffffffu32 << prefix_length);
