@@ -35,7 +35,7 @@ nix = { version = "0.29", features = [
     "user",
     "zerocopy",
 ] }
-toml = "0.8.20"
+toml = "0.8.21"
 oci-spec = "0.7"
 path-clean = "1.0"
 procfs = { version = "0.17", default-features = false }
