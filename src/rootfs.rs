@@ -1,9 +1,4 @@
-use std::{
-	fs::OpenOptions,
-	os::unix::prelude::{AsRawFd, OpenOptionsExt},
-	path::Path,
-	path::PathBuf,
-};
+use std::{fs::OpenOptions, os::unix::prelude::OpenOptionsExt, path::Path, path::PathBuf};
 
 use nix::mount::{MntFlags, MsFlags};
 use oci_spec::runtime::Spec;
@@ -167,11 +162,11 @@ pub fn pivot_root(rootfs: &Path) {
 		.open(rootfs)
 		.expect("Could not open new root!");
 
-	nix::unistd::fchdir(new_root.as_raw_fd()).expect("Could not fchdir into new root!");
+	nix::unistd::fchdir(new_root).expect("Could not fchdir into new root!");
 
 	nix::unistd::pivot_root(".", ".").expect("Could not pivot root!");
 
-	nix::unistd::fchdir(old_root.as_raw_fd()).expect("Could not fchdir to old root!");
+	nix::unistd::fchdir(old_root).expect("Could not fchdir to old root!");
 
 	let mut mount_flags = MsFlags::MS_SLAVE;
 	mount_flags.insert(MsFlags::MS_REC);
