@@ -19,7 +19,7 @@ colour = "2.1"
 command-fds = "0.3"
 futures = "0.3"
 getset = "0.1"
-goblin = { version = "0.9", default-features = false, features = ["elf64", "elf32", "endian_fd"] }
+goblin = { version = "0.10", default-features = false, features = ["elf64", "elf32", "endian_fd"] }
 libc = "0.2"
 log = { version = "0.4", features = ["std"] }
 netlink-packet-core = "0.7"
