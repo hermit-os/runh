@@ -32,7 +32,7 @@ pub fn get_qemu_args(
 ) -> Vec<String> {
 	let smp: u32 = crate::CONFIG.smp.unwrap_or(1);
 	let memory_size: String = if let Some(memory_size) = crate::CONFIG.memory_size {
-		format!("{}M", memory_size)
+		format!("{memory_size}M")
 	} else {
 		"1G".to_string()
 	};

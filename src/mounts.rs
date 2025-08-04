@@ -464,10 +464,7 @@ fn parse_mount_options(options: &[String]) -> MountOptions {
 			}
 			"tmpcopyup" => unimplemented!("tmpcopyup mount flag currently unsupported!"),
 			_ => {
-				debug!(
-					"Mount option {} not recognized, adding it to mount data string",
-					option
-				);
+				debug!("Mount option {option} not recognized, adding it to mount data string");
 				data.push(option.to_owned());
 			}
 		}
