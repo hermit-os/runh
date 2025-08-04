@@ -7,7 +7,7 @@ pub fn kill_container(project_dir: PathBuf, id: &str, sig: &str, all: bool) {
 	let container_state = if let Some(state) = state::get_container_state(project_dir, id) {
 		state
 	} else {
-		warn!("Could not query state for container {}", id);
+		warn!("Could not query state for container {id}");
 		return;
 	};
 
@@ -39,10 +39,6 @@ pub fn kill_container(project_dir: PathBuf, id: &str, sig: &str, all: bool) {
 			.unwrap_or_else(|_| panic!("Could not parse signal string {}", sig))
 	};
 
-	nix::sys::signal::kill(Pid::from_raw(pid), signal).unwrap_or_else(|_| {
-		warn!(
-			"Could not send signal {} to container process ID  {}!",
-			sig, pid
-		)
-	});
+	nix::sys::signal::kill(Pid::from_raw(pid), signal)
+		.unwrap_or_else(|_| warn!("Could not send signal {sig} to container process ID  {pid}!"));
 }

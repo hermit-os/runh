@@ -269,7 +269,7 @@ struct Cli {
 
 pub fn main() {
 	std::panic::set_hook(Box::new(|panic_info| {
-		error!("PANIC: {}", panic_info);
+		error!("PANIC: {panic_info}");
 	}));
 
 	let cli = Cli::parse();

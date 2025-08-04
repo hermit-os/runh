@@ -18,10 +18,7 @@ pub struct State {
 pub fn get_container_state(project_dir: PathBuf, id: &str) -> Option<State> {
 	let container_dir = project_dir.join(id);
 	if !container_dir.is_dir() {
-		warn!(
-			"Could not query state. Container {} does not exist in project dir!",
-			id
-		);
+		warn!("Could not query state. Container {id} does not exist in project dir!");
 		return None;
 	}
 

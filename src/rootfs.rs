@@ -122,7 +122,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &Path) {
 	bind_mount_flags.insert(MsFlags::MS_BIND);
 	bind_mount_flags.insert(MsFlags::MS_REC);
 
-	debug!("Mounting rootfs at {:?}", rootfs_path);
+	debug!("Mounting rootfs at {rootfs_path:?}");
 
 	nix::mount::mount::<Path, Path, str, str>(
 		Some(rootfs_path),

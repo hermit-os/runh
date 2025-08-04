@@ -85,7 +85,7 @@ pub fn init_container() {
 		.read_exact(&mut size_buffer)
 		.expect("Could not read message size from init-pipe!");
 	let message_size = usize::from_le_bytes(size_buffer);
-	debug!("Rootfs-path lenght: {}", message_size);
+	debug!("Rootfs-path lenght: {message_size}");
 
 	let mut rootfs_path_buffer = vec![0; message_size];
 	init_pipe
@@ -93,7 +93,7 @@ pub fn init_container() {
 		.expect("Could not read rootfs-path from init pipe!");
 	let rootfs_path =
 		String::from_utf8(rootfs_path_buffer).expect("Could not parse rootfs-path as string!");
-	debug!("read rootfs from init_pipe: {}", rootfs_path);
+	debug!("read rootfs from init_pipe: {rootfs_path}");
 
 	//Read bundle rootfs from init pipe
 	let mut bundle_rootfs_path = rootfs_path.clone();
@@ -102,7 +102,7 @@ pub fn init_container() {
 			.read_exact(&mut size_buffer)
 			.expect("Could not read message size from init-pipe!");
 		let message_size = usize::from_le_bytes(size_buffer);
-		debug!("Bundle rootfs path lenght: {}", message_size);
+		debug!("Bundle rootfs path lenght: {message_size}");
 
 		let mut bundle_rootfs_path_buffer = vec![0; message_size];
 		init_pipe
@@ -110,10 +110,7 @@ pub fn init_container() {
 			.expect("Could not read bundle rootfs path from init pipe!");
 		bundle_rootfs_path = String::from_utf8(bundle_rootfs_path_buffer)
 			.expect("Could not parse bundle rootfs path as string!");
-		debug!(
-			"read bundle rootfs path from init_pipe: {}",
-			bundle_rootfs_path
-		);
+		debug!("read bundle rootfs path from init_pipe: {bundle_rootfs_path}");
 	}
 
 	//Read spec file
@@ -221,7 +218,7 @@ fn init_stage_parent(args: SetupArgs) -> isize {
 	let written_bytes = init_pipe
 		.write(&child_pid.to_le_bytes())
 		.expect("Unable to write to init-pipe!");
-	debug!("Wrote {} bytes for child-PID", written_bytes);
+	debug!("Wrote {written_bytes} bytes for child-PID");
 	0 // Exit child process
 }
 
@@ -549,7 +546,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			None
 		};
 
-		debug!("Network configuration {:?}", hermit_network_config);
+		debug!("Network configuration {hermit_network_config:?}");
 		hermit::get_qemu_args(
 			kernel,
 			app,
@@ -586,7 +583,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	let exec_path_abs = paths::find_in_path(exec_path_rel, None)
 		.expect("Could not determine location of args-executable!");
 
-	info!("Found args-executable: {:?}", exec_path_abs);
+	info!("Found args-executable: {exec_path_abs:?}");
 	info!("Running command {}", exec_args.join(" "));
 
 	//Tell runh create we are ready to execv
