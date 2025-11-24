@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::prelude::{IntoRawFd, OpenOptionsExt};
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{
 	env,
 	fs::File,
@@ -324,18 +324,18 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.expect("Could not setup network lo interface!");
 	}
 
-	let rootfs_path = PathBuf::from(args.config.rootfs);
-	let bundle_rootfs_path = PathBuf::from(args.config.bundle_rootfs);
+	let rootfs_path = Path::new(&args.config.rootfs);
+	let bundle_rootfs_path = Path::new(&args.config.bundle_rootfs);
 
 	//Mount root file system
-	rootfs::mount_rootfs(&args.config.spec, &rootfs_path);
+	rootfs::mount_rootfs(&args.config.spec, rootfs_path);
 
 	//Setup mounts and devices
 	let setup_dev = if let Some(mounts) = args.config.spec.mounts() {
 		mounts::configure_mounts(
 			mounts,
-			&rootfs_path,
-			&bundle_rootfs_path,
+			rootfs_path,
+			bundle_rootfs_path,
 			args.config.spec.linux().as_ref().unwrap().mount_label(),
 		)
 	} else {
@@ -343,15 +343,15 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	};
 
 	if setup_dev {
-		devices::create_devices(linux_spec.devices(), &rootfs_path);
-		devices::setup_ptmx(&rootfs_path);
-		devices::setup_dev_symlinks(&rootfs_path);
+		devices::create_devices(linux_spec.devices(), rootfs_path);
+		devices::setup_ptmx(rootfs_path);
+		devices::setup_dev_symlinks(rootfs_path);
 	}
 
 	if args.config.is_hermit_container {
-		devices::mount_hermit_devices(&rootfs_path);
+		devices::mount_hermit_devices(rootfs_path);
 		devices::create_tun(
-			&rootfs_path,
+			rootfs_path,
 			Uid::from_raw(args.config.spec.process().as_ref().unwrap().user().uid()),
 			Gid::from_raw(args.config.spec.process().as_ref().unwrap().user().gid()),
 		);
@@ -376,7 +376,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 		);
 	}
 
-	nix::unistd::chdir(&rootfs_path).unwrap_or_else(|_| {
+	nix::unistd::chdir(rootfs_path).unwrap_or_else(|_| {
 		panic!(
 			"Could not change directory to rootfs path {:?}",
 			rootfs_path
@@ -386,7 +386,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	//TODO: Run create hooks
 
 	if args.config.cloneflags.contains(CloneFlags::CLONE_NEWNS) {
-		rootfs::pivot_root(&rootfs_path);
+		rootfs::pivot_root(rootfs_path);
 	} else {
 		nix::unistd::chroot(".").expect("Could not chroot into current directory!");
 		nix::unistd::chdir("/").expect("Could not chdir to / after chroot!");
@@ -419,7 +419,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 
 	let cwd = args.config.spec.process().as_ref().unwrap().cwd();
 	if !cwd.as_os_str().is_empty() {
-		mounts::create_all_dirs(&PathBuf::from(cwd));
+		mounts::create_all_dirs(Path::new(&cwd));
 	}
 
 	//Setup console
@@ -524,7 +524,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.first()
 			.expect("Container spec does not contain any args!")
 			.as_str();
-		let app_root = PathBuf::from(app)
+		let app_root = Path::new(app)
 			.parent()
 			.expect("App path does not have a parent!")
 			.to_owned();
@@ -575,7 +575,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.clone()
 	};
 
-	let exec_path_rel = PathBuf::from(
+	let exec_path_rel = Path::new(
 		exec_args
 			.first()
 			.expect("Container spec does not contain any args!"),
@@ -637,7 +637,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 
 			info!("Initialize virtiofsd: {}", virtiofsd_args.join(" "));
 
-			let virtiofsd_path_rel = PathBuf::from(
+			let virtiofsd_path_rel = Path::new(
 				virtiofsd_args
 					.first()
 					.expect("Container spec does not contain any args!"),

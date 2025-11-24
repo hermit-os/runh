@@ -204,7 +204,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 	// Create tap device in container
 	let device = nix::sys::stat::makedev(major, minor);
 	nix::sys::stat::mknod(
-		&PathBuf::from(format!("/dev/tap{macvtap_index}")),
+		&*format!("/dev/tap{macvtap_index}"),
 		SFlag::S_IFCHR,
 		nix::sys::stat::Mode::from_bits(0o600u32).unwrap(),
 		device,
