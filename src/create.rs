@@ -39,7 +39,7 @@ pub fn create_container(
 	let container = OCIContainer::new(
 		bundle.to_str().unwrap().to_owned(),
 		id.to_string(),
-		pidfile.clone().map_or(
+		pidfile.as_ref().map_or(
 			container_dir.to_str().unwrap().to_owned() + "/containerpid",
 			|x| x.to_str().unwrap().to_string(),
 		),
@@ -245,8 +245,7 @@ pub fn create_container(
 	let rootfs_path_str = rootfs_path_abs
 		.as_os_str()
 		.to_str()
-		.expect("Could not convert rootfs-path to string!")
-		.to_string();
+		.expect("Could not convert rootfs-path to string!");
 
 	debug!(
 		"Write rootfs-path {} (lenght {}) to init-pipe!",
@@ -322,9 +321,9 @@ pub fn create_container(
 	debug!("Running prestart hooks...");
 	if let Some(hooks) = container.spec().hooks().as_ref() {
 		let state = state::State {
-			version: String::from(crate::consts::OCI_STATE_VERSION),
+			version: crate::consts::OCI_STATE_VERSION,
 			id: container.id().clone(),
-			status: String::from("created"),
+			status: "created",
 			pid: Some(pid),
 			bundle: container.bundle().clone(),
 			annotations: container.spec().annotations().clone(),

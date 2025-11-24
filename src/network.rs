@@ -97,7 +97,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 	let link_info = handle
 		.link()
 		.get()
-		.match_name(String::from("eth0"))
+		.match_name("eth0".to_string())
 		.execute()
 		.try_next()
 		.await?

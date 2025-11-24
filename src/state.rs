@@ -1,13 +1,13 @@
 use crate::{consts, container::OCIContainer};
-use serde::*;
+use serde::Serialize;
 use std::{collections::HashMap, fs::OpenOptions, io::BufReader, path::PathBuf};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Debug)]
 pub struct State {
 	#[serde(rename = "ociVersion")]
-	pub version: String,
+	pub version: &'static str,
 	pub id: String,
-	pub status: String,
+	pub status: &'static str,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub pid: Option<i32>,
 	pub bundle: String,
@@ -24,14 +24,13 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> Option<State> {
 
 	let exec_fifo = container_dir.join("exec.fifo");
 
-	let bundle = String::from(
-		container_dir
-			.join("bundle")
-			.read_link()
-			.expect("Could not query state. Bundle link could not be read!")
-			.to_str()
-			.unwrap(),
-	);
+	let bundle = container_dir
+		.join("bundle")
+		.read_link()
+		.expect("Could not query state. Bundle link could not be read!")
+		.into_os_string()
+		.into_string()
+		.unwrap();
 
 	let state_file = container_dir.join("created");
 	let pid: Option<i32> = if state_file.exists() {
@@ -54,9 +53,9 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> Option<State> {
 		.expect("Could not query state. Container file could not be parsed!");
 
 	Some(State {
-		version: String::from(consts::OCI_STATE_VERSION),
+		version: consts::OCI_STATE_VERSION,
 		id: id.to_string(),
-		status: String::from(if let Some(pid_int) = pid {
+		status: if let Some(pid_int) = pid {
 			if let Ok(process) = procfs::process::Process::new(pid_int) {
 				let process_state = process
 					.stat()
@@ -79,7 +78,7 @@ pub fn get_container_state(project_dir: PathBuf, id: &str) -> Option<State> {
 			}
 		} else {
 			"creating"
-		}),
+		},
 		pid,
 		bundle,
 		annotations: container.spec().annotations().clone(),
