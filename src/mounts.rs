@@ -358,7 +358,7 @@ fn open_trough_procfd(
 	full_dest: &Path,
 	options: &mut MountOptions,
 ) -> File {
-	if mount_dest.to_path_buf() == PathBuf::from("/dev") || device == "tmpfs" {
+	if mount_dest == "/dev" || device == "tmpfs" {
 		options.mount_flags.remove(MsFlags::MS_RDONLY);
 	}
 

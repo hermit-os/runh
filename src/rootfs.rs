@@ -29,7 +29,7 @@ pub fn resolve_in_rootfs(destination_rel: &Path, rootfs: &Path) -> PathBuf {
 			.join(&destination_resolved)
 			.join(subpath)
 			.clean();
-		if clean_subpath == PathBuf::from("/") {
+		if &clean_subpath == "/" {
 			destination_resolved.clear();
 			continue;
 		}
