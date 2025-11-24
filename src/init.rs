@@ -620,7 +620,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 			.expect("RUNH_MICRO_VM was not an unsigned integer!");
 
 		if micro_vm == 0 {
-			let virtiofsd_args: Vec<String> = [
+			let virtiofsd_args: Vec<&str> = vec![
 				"virtiofsd",
 				"--socket-path=/run/vhostqemu",
 				"--shared-dir",
@@ -630,10 +630,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 				"--seccomp",
 				"none",
 				"--inode-file-handles=never",
-			]
-			.iter()
-			.map(|s| s.to_string())
-			.collect();
+			];
 
 			info!("Initialize virtiofsd: {}", virtiofsd_args.join(" "));
 

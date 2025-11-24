@@ -82,16 +82,14 @@ pub fn configure_mounts(
 			debug!(
 				"Mounting {:?} with type {} and options {:?}",
 				destination_resolved,
-				mount.typ().as_ref().unwrap_or(&"none".to_string()),
+				mount.typ().as_deref().unwrap_or("none"),
 				mount.options().as_ref().unwrap_or(&vec![])
 			);
 
 			let is_bind_mount = mount
 				.options()
 				.as_ref()
-				.map(|options| {
-					options.contains(&"bind".to_string()) || options.contains(&"rbind".to_string())
-				})
+				.map(|options| options.iter().any(|i| i == "bind" || i == "rbind"))
 				.unwrap_or(false);
 			if is_bind_mount {
 				if destination_resolved.parent().map(|i| i == rootfs) == Some(true)
@@ -372,7 +370,7 @@ fn open_trough_procfd(
 		.open(full_dest)
 		.unwrap_or_else(|_| panic!("Could not open mount directory at {:?}!", full_dest));
 
-	let procfd_path = PathBuf::from("/proc/self/fd").join(&dest_file.as_raw_fd().to_string());
+	let procfd_path = PathBuf::from("/proc/self/fd").join(dest_file.as_raw_fd().to_string());
 
 	let real_path = std::fs::read_link(&procfd_path).unwrap_or_else(|_| {
 		panic!(
