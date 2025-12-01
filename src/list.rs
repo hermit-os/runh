@@ -72,7 +72,7 @@ pub fn list_containers(project_dir: PathBuf) {
 				if let Ok(container) = serde_json::from_str::<OCIContainer>(&contents) {
 					println!(
 						"{0: <12} {1: <12} {2: <12} {3: <12} {4: <12} {5: <12}",
-						dir.file_name().into_string().unwrap(),
+						dir.file_name().to_str().unwrap(),
 						"",
 						status,
 						container.bundle(),

@@ -21,14 +21,15 @@ pub fn setup_console(console_socket: File, win_size: Option<&nix::pty::Winsize>)
 	nix::pty::unlockpt(&master_fd).expect("Could not unlockpt!");
 
 	// Get the name of the slave
-	let slave_name = nix::pty::ptsname_r(&master_fd).expect("Could not get ptsname!");
+	let slave_name =
+		PathBuf::from(nix::pty::ptsname_r(&master_fd).expect("Could not get ptsname!"));
 
 	if let Some(winsize) = win_size {
 		unsafe { ioctl_set_winsize(master_fd.as_raw_fd(), winsize as *const libc::winsize) }
 			.expect("Could not set winsize using ioctl!");
 	}
 
-	mounts::mount_console(&PathBuf::from(&slave_name));
+	mounts::mount_console(&slave_name);
 
 	//Send master fd over console_socket
 	nix::sys::socket::sendmsg::<()>(
@@ -40,12 +41,8 @@ pub fn setup_console(console_socket: File, win_size: Option<&nix::pty::Winsize>)
 	)
 	.expect("Could not send message to console socket!");
 
-	let slave_fd = nix::fcntl::open(
-		std::path::Path::new(&slave_name),
-		OFlag::O_RDWR,
-		Mode::empty(),
-	)
-	.expect("Could not open pty slave path!");
+	let slave_fd = nix::fcntl::open(&slave_name, OFlag::O_RDWR, Mode::empty())
+		.expect("Could not open pty slave path!");
 	for i in 0..3 {
 		nix::unistd::dup3(slave_fd, i, OFlag::empty())
 			.unwrap_or_else(|_| panic!("Could not dup3 pty slave_fd onto fd {}", i));
