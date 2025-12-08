@@ -1,6 +1,4 @@
-use std::{
-	convert::TryInto, fs::OpenOptions, os::unix::prelude::OpenOptionsExt, path::Path, path::PathBuf,
-};
+use std::{convert::TryInto, fs::OpenOptions, os::unix::prelude::OpenOptionsExt, path::Path};
 
 use nix::{
 	mount::MsFlags,
@@ -14,7 +12,7 @@ use crate::{mounts, rootfs};
 pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: &Path) {
 	let mut default_devices = vec![
 		runtime::LinuxDeviceBuilder::default()
-			.path(PathBuf::from("/dev/null"))
+			.path("/dev/null")
 			.file_mode(0o666u32)
 			.typ(runtime::LinuxDeviceType::C)
 			.major(1)
@@ -24,7 +22,7 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			.build()
 			.unwrap(),
 		runtime::LinuxDeviceBuilder::default()
-			.path(PathBuf::from("/dev/zero"))
+			.path("/dev/zero")
 			.file_mode(0o666u32)
 			.typ(runtime::LinuxDeviceType::C)
 			.major(1)
@@ -34,7 +32,7 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			.build()
 			.unwrap(),
 		runtime::LinuxDeviceBuilder::default()
-			.path(PathBuf::from("/dev/full"))
+			.path("/dev/full")
 			.file_mode(0o666u32)
 			.typ(runtime::LinuxDeviceType::C)
 			.major(1)
@@ -44,7 +42,7 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			.build()
 			.unwrap(),
 		runtime::LinuxDeviceBuilder::default()
-			.path(PathBuf::from("/dev/random"))
+			.path("/dev/random")
 			.file_mode(0o666u32)
 			.typ(runtime::LinuxDeviceType::C)
 			.major(1)
@@ -54,7 +52,7 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			.build()
 			.unwrap(),
 		runtime::LinuxDeviceBuilder::default()
-			.path(PathBuf::from("/dev/urandom"))
+			.path("/dev/urandom")
 			.file_mode(0o666u32)
 			.typ(runtime::LinuxDeviceType::C)
 			.major(1)
@@ -64,7 +62,7 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 			.build()
 			.unwrap(),
 		runtime::LinuxDeviceBuilder::default()
-			.path(PathBuf::from("/dev/tty"))
+			.path("/dev/tty")
 			.file_mode(0o666u32)
 			.typ(runtime::LinuxDeviceType::C)
 			.major(5)
@@ -96,14 +94,12 @@ pub fn create_devices(spec_devices: &Option<Vec<runtime::LinuxDevice>>, rootfs: 
 		if !destination_resolved.starts_with(rootfs) {
 			panic!("Device at {:?} cannot be mounted into rootfs!", dev.path());
 		}
-		mounts::create_all_dirs(&PathBuf::from(
-			&destination_resolved.parent().unwrap_or_else(|| {
-				panic!(
-					"Could create device at destination {:?} which has no parent dir!",
-					destination_resolved
-				)
-			}),
-		));
+		mounts::create_all_dirs(destination_resolved.parent().unwrap_or_else(|| {
+			panic!(
+				"Could create device at destination {:?} which has no parent dir!",
+				destination_resolved
+			)
+		}));
 
 		//Just assume we are not in a user namespace and that mknod will work. Error out if it does not (FIXME ?)
 		let node_kind = match dev.typ() {
@@ -158,8 +154,8 @@ fn verify_device(path: &Path, major_exp: u64, minor_exp: u64) {
 }
 
 pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
-	let destination_relative = PathBuf::from("/dev/net/tun");
-	let destination_resolved = rootfs::resolve_in_rootfs(&destination_relative, rootfs);
+	let destination_relative = Path::new("/dev/net/tun");
+	let destination_resolved = rootfs::resolve_in_rootfs(destination_relative, rootfs);
 	if !destination_resolved.starts_with(rootfs) {
 		panic!(
 			"Device at {:?} cannot be mounted into rootfs!",
@@ -174,7 +170,7 @@ pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
 		)
 	});
 	if !parent.exists() {
-		mounts::create_all_dirs(&PathBuf::from(&destination_resolved.parent().unwrap()));
+		mounts::create_all_dirs(destination_resolved.parent().unwrap());
 	}
 
 	if destination_resolved.exists() {
@@ -194,13 +190,13 @@ pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
 
 pub fn mount_hermit_devices(rootfs: &Path) {
 	if std::fs::metadata("/dev/kvm").is_ok() {
-		mount_device(rootfs, &PathBuf::from("/dev/kvm"), 10, 232);
+		mount_device(rootfs, Path::new("/dev/kvm"), 10, 232);
 	} else {
 		warn!("/dev/kvm doesn't exist and is consequently not supported!");
 	}
 
 	if std::fs::metadata("/dev/vhost-net").is_ok() {
-		mount_device(rootfs, &PathBuf::from("/dev/vhost-net"), 10, 238);
+		mount_device(rootfs, Path::new("/dev/vhost-net"), 10, 238);
 	} else {
 		warn!("/dev/vhost-net doesn't exist and is consequently not supported!");
 	}
@@ -216,7 +212,7 @@ fn mount_device(rootfs: &Path, destination_rel: &Path, major: u64, minor: u64) {
 	});
 
 	if !parent.exists() {
-		mounts::create_all_dirs(&PathBuf::from(&destination.parent().unwrap()));
+		mounts::create_all_dirs(destination.parent().unwrap());
 	}
 
 	if destination.exists() {
@@ -253,7 +249,7 @@ fn mount_device(rootfs: &Path, destination_rel: &Path, major: u64, minor: u64) {
 }
 
 pub fn setup_dev_symlinks(rootfs: &Path) {
-	// if PathBuf::from("/proc/kcore").exists() {
+	// if Path::new("/proc/kcore").exists() {
 	// 	nix::unistd::symlinkat("/proc/kcore", None, &rootfs.join("dev/core"))
 	// 		.expect("Could not symlink /proc/kcore to /dev/core");
 	// }

@@ -54,45 +54,42 @@ pub fn get_qemu_args(
 		"-initrd",
 		app,
 	]
-	.iter()
+	.into_iter()
 	.map(|s| s.to_string())
 	.collect();
 
 	if let Some(kvm) = crate::CONFIG.kvm {
 		if kvm && kvm_support {
-			exec_args.append(
-				&mut ["--enable-kvm", "-cpu", "host"]
+			exec_args.extend(
+				["--enable-kvm", "-cpu", "host"]
 					.iter()
-					.map(|s| s.to_string())
-					.collect(),
+					.map(|s| s.to_string()),
 			);
 		} else {
-			exec_args.append(
-				&mut [
+			exec_args.extend(
+				[
 					"-cpu",
 					"qemu64,apic,fsgsbase,rdtscp,xsave,xsaveopt,fxsr,rdrand",
 				]
 				.iter()
-				.map(|s| s.to_string())
-				.collect(),
+				.map(|s| s.to_string()),
 			);
 		}
 	} else {
 		// disable kvm support, if the configuration file doesn't enable it
-		exec_args.append(
-			&mut [
+		exec_args.extend(
+			[
 				"-cpu",
 				"qemu64,apic,fsgsbase,rdtscp,xsave,xsaveopt,fxsr,rdrand",
 			]
 			.iter()
-			.map(|s| s.to_string())
-			.collect(),
+			.map(|s| s.to_string()),
 		);
 	}
 
 	if micro_vm {
-		exec_args.append(
-			&mut [
+		exec_args.extend(
+			[
 				"-M",
 				"microvm,x-option-roms=off,pit=off,pic=off,rtc=on,auto-kernel-cmdline=off,acpi=off",
 				"-global",
@@ -101,12 +98,11 @@ pub fn get_qemu_args(
 				"-no-user-config",
 			]
 			.iter()
-			.map(|s| s.to_string())
-			.collect(),
+			.map(|s| s.to_string()),
 		);
 	} else {
-		exec_args.append(
-			&mut [
+		exec_args.extend(
+			[
 				"-chardev",
 				"socket,id=char0,path=/run/vhostqemu",
 				"-device",
@@ -117,8 +113,7 @@ pub fn get_qemu_args(
 				"node,memdev=mem",
 			]
 			.iter()
-			.map(|s| s.to_string())
-			.collect(),
+			.map(|s| s.to_string()),
 		);
 	}
 
@@ -145,13 +140,15 @@ pub fn get_qemu_args(
 			args_string
 		}
 		NetworkConfig::UserNetwork(user_port) => {
-			exec_args.push("-netdev".to_string());
-			exec_args.push(format!(
-				"user,id=u1,hostfwd=tcp::{user_port}-:{user_port},net=192.168.76.0/24,dhcpstart=192.168.76.9"
-			));
-			exec_args.push("-device".to_string());
-			exec_args.push("virtio-net-pci,netdev=u1,disable-legacy=on".to_string());
-			exec_args.push("-append".to_string());
+			exec_args.extend([
+				"-netdev".to_string(),
+				format!(
+					"user,id=u1,hostfwd=tcp::{user_port}-:{user_port},net=192.168.76.0/24,dhcpstart=192.168.76.9"
+				),
+				"-device".to_string(),
+				"virtio-net-pci,netdev=u1,disable-legacy=on".to_string(),
+				"-append".to_string(),
+			]);
 
 			"".to_string()
 		}
