@@ -16,9 +16,9 @@ use std::path::PathBuf;
 // 		let network_file = std::fs::File::open(network_file_path)?;
 // 		let buf_reader = BufReader::new(network_file);
 // 		let network_config: network::HermitNetworkConfig = serde_json::from_reader(buf_reader)?;
-// 		let namespace_file = File::open(PathBuf::from(
+// 		let namespace_file = File::open(
 // 			network_config.network_namespace.as_ref().unwrap(),
-// 		))?;
+// 		)?;
 // 		nix::sched::setns(namespace_file.as_raw_fd(), CloneFlags::CLONE_NEWNET)?;
 
 // 		network::undo_tap_creation(&network_config)?;
