@@ -17,7 +17,7 @@ use std::os::unix::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::net::UnixStream;
 use std::os::unix::prelude::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::container::OCIContainer;
@@ -34,12 +34,12 @@ pub fn create_container(
 ) {
 	let _ = std::fs::create_dir(&project_dir);
 
-	let container_dir = rootfs::resolve_in_rootfs(&PathBuf::from(id), &project_dir);
+	let container_dir = rootfs::resolve_in_rootfs(Path::new(id), &project_dir);
 	std::fs::create_dir(container_dir.clone()).expect("Unable to create container directory");
 	let container = OCIContainer::new(
 		bundle.to_str().unwrap().to_owned(),
 		id.to_string(),
-		pidfile.clone().map_or(
+		pidfile.as_ref().map_or(
 			container_dir.to_str().unwrap().to_owned() + "/containerpid",
 			|x| x.to_str().unwrap().to_string(),
 		),
@@ -74,9 +74,9 @@ pub fn create_container(
 	}
 
 	// find rootfs
-	let bundle_rootfs_path = PathBuf::from(&container.spec().root().as_ref().unwrap().path());
+	let bundle_rootfs_path = container.spec().root().as_ref().unwrap().path();
 	let bundle_rootfs_path_abs = std::fs::canonicalize(if bundle_rootfs_path.is_absolute() {
-		bundle_rootfs_path
+		bundle_rootfs_path.to_path_buf()
 	} else {
 		let rootfs = &bundle;
 		rootfs.join(bundle_rootfs_path)
@@ -93,12 +93,12 @@ pub fn create_container(
 		.as_ref()
 		.unwrap();
 
-	let exec_path_rel = PathBuf::from(
+	let exec_path_rel = Path::new(
 		exec_args
 			.first()
 			.expect("Container spec does not contain any args!"),
 	);
-	let exec_path_abs = rootfs::resolve_in_rootfs(&exec_path_rel, &bundle_rootfs_path_abs);
+	let exec_path_abs = rootfs::resolve_in_rootfs(exec_path_rel, &bundle_rootfs_path_abs);
 	let is_hermit_container = if exec_path_abs.exists() {
 		hermit::is_hermit_app(&exec_path_abs)
 	} else {
@@ -245,8 +245,7 @@ pub fn create_container(
 	let rootfs_path_str = rootfs_path_abs
 		.as_os_str()
 		.to_str()
-		.expect("Could not convert rootfs-path to string!")
-		.to_string();
+		.expect("Could not convert rootfs-path to string!");
 
 	debug!(
 		"Write rootfs-path {} (lenght {}) to init-pipe!",
@@ -322,9 +321,9 @@ pub fn create_container(
 	debug!("Running prestart hooks...");
 	if let Some(hooks) = container.spec().hooks().as_ref() {
 		let state = state::State {
-			version: String::from(crate::consts::OCI_STATE_VERSION),
+			version: crate::consts::OCI_STATE_VERSION,
 			id: container.id().clone(),
-			status: String::from("created"),
+			status: "created",
 			pid: Some(pid),
 			bundle: container.bundle().clone(),
 			annotations: container.spec().annotations().clone(),

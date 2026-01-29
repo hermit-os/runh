@@ -1,13 +1,13 @@
 use nix::{mount::MsFlags, sys::stat::Mode};
 use oci_spec::runtime;
 use std::{
+	borrow::Cow,
 	fs::{DirBuilder, File, OpenOptions},
 	os::unix::{
 		fs::DirBuilderExt,
 		prelude::{AsRawFd, OpenOptionsExt},
 	},
-	path::Path,
-	path::PathBuf,
+	path::{Path, PathBuf},
 };
 
 use crate::rootfs;
@@ -62,12 +62,12 @@ pub fn configure_mounts(
 
 	for mount in mounts {
 		//Resolve mount source
-		let mut mount_src = PathBuf::from(&mount.source().as_ref().unwrap());
+		let mut mount_src = Cow::Borrowed(&**mount.source().as_ref().unwrap());
 		if !mount_src.is_absolute() {
-			mount_src = bundle_rootfs.join(mount_src);
+			mount_src = Cow::Owned(bundle_rootfs.join(&*mount_src));
 		}
 
-		let mount_dest = PathBuf::from(&mount.destination());
+		let mount_dest = mount.destination();
 		let mount_device = mount.typ().as_ref().unwrap().as_str();
 
 		let mount_options = mount
@@ -82,40 +82,40 @@ pub fn configure_mounts(
 			debug!(
 				"Mounting {:?} with type {} and options {:?}",
 				destination_resolved,
-				mount.typ().as_ref().unwrap_or(&"none".to_string()),
+				mount.typ().as_deref().unwrap_or("none"),
 				mount.options().as_ref().unwrap_or(&vec![])
 			);
 
 			let is_bind_mount = mount
 				.options()
 				.as_ref()
-				.map(|options| {
-					options.contains(&"bind".to_string()) || options.contains(&"rbind".to_string())
-				})
+				.map(|options| options.iter().any(|i| i == "bind" || i == "rbind"))
 				.unwrap_or(false);
 			if is_bind_mount {
-				if destination_resolved == PathBuf::from(&rootfs).join("dev") {
+				if destination_resolved.parent().map(|i| i == rootfs) == Some(true)
+					&& destination_resolved.file_name().map(|i| i == "dev") == Some(true)
+				{
 					setup_dev = false;
 				}
 
 				if !mount_src.exists() {
 					panic!(
 						"Tried to bind-mount source {:?} which does not exist!",
-						mount_src
+						&*mount_src
 					);
 				}
 				if destination_resolved.starts_with(rootfs.join("proc")) {
 					panic!(
 						"Tried to mount source {:?} at destination {:?} which is in /proc",
-						mount_src, mount_dest
+						&*mount_src, mount_dest
 					);
 				} else {
 					if mount_src.is_dir() {
 						create_all_dirs(&destination_resolved);
 					} else {
-						create_all_dirs(&PathBuf::from(&destination_resolved.parent().unwrap_or_else(||
+						create_all_dirs(destination_resolved.parent().unwrap_or_else(||
 							panic!("Could not mount to destination {:?} which is not a directory and has no parent dir!", destination_resolved)
-						)));
+						));
 						if !destination_resolved.exists() {
 							let _ = OpenOptions::new()
 								.mode(0o755)
@@ -135,7 +135,7 @@ pub fn configure_mounts(
 					mount_with_flags(
 						"bind",
 						&mount_src,
-						&mount_dest,
+						mount_dest,
 						&destination_resolved,
 						mount_options.clone(),
 						mount_label.as_ref(),
@@ -151,7 +151,7 @@ pub fn configure_mounts(
 						remount(
 							"bind",
 							&mount_src,
-							&mount_dest,
+							mount_dest,
 							&destination_resolved,
 							mount_options,
 						);
@@ -166,7 +166,7 @@ pub fn configure_mounts(
 							mount_with_flags(
 								mount_device,
 								&mount_src,
-								&mount_dest,
+								mount_dest,
 								&destination_resolved,
 								mount_options,
 								None,
@@ -182,7 +182,7 @@ pub fn configure_mounts(
 						mount_with_flags(
 							mount_device,
 							&mount_src,
-							&mount_dest,
+							mount_dest,
 							&destination_resolved,
 							mount_options,
 							None,
@@ -209,7 +209,7 @@ pub fn configure_mounts(
 						mount_with_flags(
 							mount_device,
 							&mount_src,
-							&mount_dest,
+							mount_dest,
 							&destination_resolved,
 							mount_options.clone(),
 							mount_label.as_ref(),
@@ -230,7 +230,7 @@ pub fn configure_mounts(
 							remount(
 								mount_device,
 								&mount_src,
-								&mount_dest,
+								mount_dest,
 								&destination_resolved,
 								mount_options,
 							);
@@ -254,14 +254,14 @@ pub fn configure_mounts(
 						if destination_resolved.starts_with(rootfs.join("proc")) {
 							panic!(
 								"Tried to mount source {:?} at destination {:?} which is in /proc",
-								mount_src, mount_dest
+								&*mount_src, mount_dest
 							);
 						} else {
 							create_all_dirs(&destination_resolved);
 							mount_with_flags(
 								mount_device,
 								&mount_src,
-								&mount_dest,
+								mount_dest,
 								&destination_resolved,
 								mount_options.clone(),
 								mount_label.as_ref(),
@@ -294,7 +294,7 @@ fn remount(
 	nix::mount::mount::<Path, Path, str, str>(
 		Some(mount_src),
 		&procfd_path,
-		Some(device.to_owned().as_str()),
+		Some(device),
 		options.mount_flags,
 		None,
 	)
@@ -321,7 +321,7 @@ pub fn mount_with_flags(
 	nix::mount::mount::<Path, Path, str, str>(
 		Some(mount_src),
 		&procfd_path,
-		Some(device.to_owned().as_str()),
+		Some(device),
 		options.mount_flags,
 		options.data.as_deref(),
 	)
@@ -370,9 +370,7 @@ fn open_trough_procfd(
 		.open(full_dest)
 		.unwrap_or_else(|_| panic!("Could not open mount directory at {:?}!", full_dest));
 
-	let mut procfd_path = PathBuf::new();
-	procfd_path.push("/proc/self/fd");
-	procfd_path.push(dest_file.as_raw_fd().to_string());
+	let procfd_path = PathBuf::from("/proc/self/fd").join(dest_file.as_raw_fd().to_string());
 
 	let real_path = std::fs::read_link(&procfd_path).unwrap_or_else(|_| {
 		panic!(
