@@ -65,9 +65,10 @@ pub fn list_containers(project_dir: PathBuf) {
 				};
 				let user = get_unix_username(metadata.uid()).unwrap_or_default();
 				let status = if uts.exists() { "RUNNING" } else { "CREATED" };
-				let format_desc =
-					format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
-						.unwrap();
+				let format_desc = format_description::parse_borrowed::<3>(
+					"[year]-[month]-[day] [hour]:[minute]:[second]",
+				)
+				.unwrap();
 
 				if let Ok(container) = serde_json::from_str::<OCIContainer>(&contents) {
 					println!(
