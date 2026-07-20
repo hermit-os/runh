@@ -96,8 +96,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &Path) {
 			Some("unbindable") => MsFlags::MS_UNBINDABLE,
 			Some(_) => panic!(
 				"Value of rootfsPropagation did not match any known option! Given value: {}",
-				&spec
-					.linux()
+				spec.linux()
 					.as_ref()
 					.unwrap()
 					.rootfs_propagation()
@@ -131,7 +130,7 @@ pub fn mount_rootfs(spec: &Spec, rootfs_path: &Path) {
 		bind_mount_flags,
 		None,
 	)
-	.unwrap_or_else(|_| panic!("Could not bind-mount rootfs at {:?}", &rootfs_path));
+	.unwrap_or_else(|_| panic!("Could not bind-mount rootfs at {:?}", rootfs_path));
 }
 
 pub fn set_rootfs_read_only() {

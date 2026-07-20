@@ -87,7 +87,7 @@ fn parse_matches(cli: &Cli) {
 			.recursive(true)
 			.mode(0o755)
 			.create(project_dir)
-			.unwrap_or_else(|_| panic!("Could not create root directory at {:?}", &project_dir));
+			.unwrap_or_else(|_| panic!("Could not create root directory at {:?}", project_dir));
 	}
 
 	if let Commands::State { container_id } = &cli.command {

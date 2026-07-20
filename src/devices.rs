@@ -159,7 +159,7 @@ pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
 	if !destination_resolved.starts_with(rootfs) {
 		panic!(
 			"Device at {:?} cannot be mounted into rootfs!",
-			&destination_relative
+			destination_relative
 		);
 	}
 
@@ -183,9 +183,9 @@ pub fn create_tun(rootfs: &Path, uid: Uid, gid: Gid) {
 	let mode = Mode::from_bits(0o755u32).unwrap();
 	let device = nix::sys::stat::makedev(10, 200);
 	nix::sys::stat::mknod(&destination_resolved, node_kind, mode, device)
-		.unwrap_or_else(|_| panic!("Could not create device {:?}!", &destination_relative));
+		.unwrap_or_else(|_| panic!("Could not create device {:?}!", destination_relative));
 	nix::unistd::chown(&destination_resolved, Some(uid), Some(gid))
-		.unwrap_or_else(|_| panic!("Could not chown device {:?}!", &destination_relative));
+		.unwrap_or_else(|_| panic!("Could not chown device {:?}!", destination_relative));
 }
 
 pub fn mount_hermit_devices(rootfs: &Path) {
