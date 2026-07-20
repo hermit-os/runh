@@ -194,7 +194,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 		.join(format!("tap{macvtap_index}"))
 		.join("dev");
 	let dev_file_string = std::fs::read_to_string(&tap_dev_file_path)
-		.unwrap_or_else(|_| panic!("Could not open sysfs entry at {:?}", &tap_dev_file_path));
+		.unwrap_or_else(|_| panic!("Could not open sysfs entry at {:?}", tap_dev_file_path));
 
 	let mut major_minor_split = dev_file_string.split(':');
 
@@ -223,7 +223,7 @@ pub async fn create_tap() -> Result<VirtioNetworkConfig, Box<dyn std::error::Err
 
 	info!(
 		"Found / created network setup: IP={},MASK={},GW={},MAC={}",
-		ip_address, prefix_length, gateway_address, &mac_address
+		ip_address, prefix_length, gateway_address, mac_address
 	);
 
 	let mask: Ipv4Addr = Ipv4Addr::from(0xffffffffu32 << prefix_length);

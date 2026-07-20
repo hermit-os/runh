@@ -465,7 +465,7 @@ fn init_stage_child(args: SetupArgs) -> ! {
 	}
 
 	if let Some(hostname) = args.config.spec.hostname() {
-		debug!("set hostname to {}", &hostname);
+		debug!("set hostname to {}", hostname);
 		nix::unistd::sethostname(hostname).expect("Could not set hostname!");
 	}
 
