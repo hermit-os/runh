@@ -4,11 +4,11 @@
 To start HermitOS application within a isolated lightweight virtual machine, a container registry with the the HermitOS application and its loader.
 
 To create a container image with the httpd example from the [HermitOS](https://github.com/hermit-os/hermit-rs) repository, the following `Dockerfile` is used.
-The example assumes, that `httpd` and `hermit-loader-x86_64` is already created and copied to the directory, which contains the `Dockerfile`.
+The example assumes, that `httpd` and `hermit-loader-x86_64-multiboot` is already created and copied to the directory, which contains the `Dockerfile`.
 
 ```Dockerfile
 FROM ghcr.io/hermit-os/hermit_env:latest
-COPY hermit-loader-x86_64 hermit/hermit-loader
+COPY hermit-loader-x86_64-multiboot hermit/hermit-loader-multiboot
 COPY httpd hermit/httpd
 CMD ["/hermit/httpd"]
 ```
